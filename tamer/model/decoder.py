@@ -165,6 +165,7 @@ class Decoder(DecodeModel):
         tgt_mask = self._build_attention_mask(l)
         tgt_pad_mask = tgt == vocab.PAD_IDX
 
+        tgt_vocab=tgt
         tgt = self.word_embed(tgt)  # [b, l, d]
         tgt = self.pos_enc(tgt)  # [b, l, d]
         tgt = self.norm(tgt)
@@ -174,13 +175,14 @@ class Decoder(DecodeModel):
         src_mask = rearrange(src_mask, "b h w -> b (h w)")
         tgt = rearrange(tgt, "b l d -> l b d")
 
-        out = self.model(
+        out, attn = self.model(
             tgt=tgt,
             memory=src,
             height=h,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_pad_mask,
             memory_key_padding_mask=src_mask,
+            tgt_vocab=tgt_vocab,
         )
 
         sim = self.struct_sim(out, tgt_pad_mask)
@@ -188,6 +190,7 @@ class Decoder(DecodeModel):
         out = rearrange(out, "l b d -> b l d")
         out = self.proj(out)
 
+        # could return attn
         return out, sim
 
     def transform(
