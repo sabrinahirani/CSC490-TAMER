@@ -5,6 +5,7 @@ import json
 import pytorch_lightning as pl
 import torch
 import torch.optim as optim
+import torch.nn.functional as F # added 
 from torch import FloatTensor, LongTensor
 
 from tamer.datamodule import Batch, vocab
@@ -12,6 +13,14 @@ from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
 
+from rapidfuzz.distance import Levenshtein
+import numpy as np
+
+def levenshtein_batch(preds, targets):
+    preds = [" ".join(map(str, p)) for p in preds]
+    targets = [" ".join(map(str, t)) for t in targets]
+    distances = np.array(Levenshtein.normalized_distance(preds, targets), dtype=np.float32)
+    return torch.tensor(1 - distances, device="cuda" if torch.cuda.is_available() else "cpu")
 
 class LitTAMER(pl.LightningModule):
     def __init__(
@@ -59,45 +68,92 @@ class LitTAMER(pl.LightningModule):
 
         self.exprate_recorder = ExpRateRecorder()
 
-    def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
-    ) -> FloatTensor:
-        """run img and bi-tgt
+    
+    # Original Implementation:
+    # -----------------------
 
-        Parameters
-        ----------
-        img : FloatTensor
-            [b, 1, h, w]
-        img_mask: LongTensor
-            [b, h, w]
-        tgt : LongTensor
-            [2b, l]
+    # def training_step(self, batch: Batch, _):
+    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
+    #     struct_out, _ = to_struct_output(batch.indices, self.device)
+    #     out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        Returns
-        -------
-        FloatTensor
-            [2b, l, vocab_size]
-        """
+    #     loss = ce_loss(out_hat, out)
+    #     self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+    #     self.log(
+    #         "train/struct_loss",
+    #         struct_loss,
+    #         on_step=False,
+    #         on_epoch=True,
+    #         sync_dist=True,
+    #     )
+
+    #     return loss + struct_loss
+
+
+
+    # Self-Critical Sequence Training:
+    # -------------------------------
+
+    def forward(self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor) -> FloatTensor:
         return self.tamer_model(img, img_mask, tgt)
 
-    def training_step(self, batch: Batch, _):
+    def generate_baseline(self, imgs, masks):
+        with torch.no_grad():
+            return self.tamer_model.beam_search(imgs, masks, **self.hparams)
+
+    def generate_sample(self, imgs, masks):
+        return self.tamer_model.sample(imgs, masks, **self.hparams)
+
+    def compute_reward(self, preds, targets):
+        return levenshtein_batch(preds, targets)
+
+    def training_step(self, batch: Batch, batch_idx):
+        # Forward Pass
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        loss = ce_loss(out_hat, out)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        # Compute Losses
+        ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-        self.log(
-            "train/struct_loss",
-            struct_loss,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
 
-        return loss + struct_loss
+        # Apply SCST every X steps
+        if batch_idx % 250 == 0:
+            with torch.no_grad():
+                baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
 
+            sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+            baseline_seqs = [h.seq for h in baseline_hyps]
+            sampled_seqs = [h.seq for h in sampled_hyps]
+            gts = [vocab.indices2words(ind) for ind in batch.indices]
+
+            baseline_reward = self.compute_reward(baseline_seqs, gts)
+            sampled_reward = self.compute_reward(sampled_seqs, gts)
+            reward_diff = (sampled_reward - baseline_reward).detach()
+
+            log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
+            scst_loss = -torch.mean(reward_diff * log_probs)
+        else:
+            scst_loss = 0  # Skip SCST for this step
+
+        # Compute Total Loss
+        loss = ce_loss_val + struct_loss + scst_loss
+        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+
+        return loss
+
+    
+    # added
+    def on_train_epoch_end(self):
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    def on_train_start(self):
+        torch.set_float32_matmul_precision("medium")  # enables A100 Tensor Cores
+
+    # def on_after_backward(self):
+    #     torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)

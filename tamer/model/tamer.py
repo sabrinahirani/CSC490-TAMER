@@ -43,7 +43,7 @@ class TAMER(pl.LightningModule):
         )
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor,
     ) -> FloatTensor:
         """run img and bi-tgt
 
@@ -97,3 +97,33 @@ class TAMER(pl.LightningModule):
         return self.decoder.beam_search(
             [feature], [mask], beam_size, max_len, alpha, early_stopping, temperature
         )
+
+    # added
+    def sample(
+        self,
+        img: FloatTensor,
+        img_mask: LongTensor,
+        max_len: int,
+        temperature: float,
+        **kwargs,
+    ) -> List[Hypothesis]:
+        """Generate sequences using stochastic sampling.
+
+        Parameters
+        ----------
+        img : FloatTensor
+            [b, 1, h', w']
+        img_mask: LongTensor
+            [b, h', w']
+        max_len : int
+            Maximum length of the generated sequence.
+        temperature : float
+            Softmax temperature for sampling.
+
+        Returns
+        -------
+        List[Hypothesis]
+            List of generated hypotheses (sampled sequences).
+        """
+        feature, mask = self.encoder(img, img_mask)  # [b, t, d]
+        return self.decoder.sample([feature], [mask], max_len, temperature)

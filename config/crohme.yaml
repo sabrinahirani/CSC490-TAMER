@@ -11,10 +11,10 @@ trainer:
         monitor: val_ExpRate
         mode: max
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
-  gpus: 0, 1, 2, 3
-  accelerator: ddp
+  gpus: 0
+  accelerator: gpu
   check_val_every_n_epoch: 2
-  max_epochs: 400
+  max_epochs: 200
   deterministic: true
 model:
   d_model: 256
@@ -44,10 +44,10 @@ model:
     - 350
 data:
   folder: data/crohme
-  test_folder: 2014
+  test_folder: "2014"
   max_size: 320000
   scale_to_limit: true
-  train_batch_size: 8
-  eval_batch_size: 2
+  train_batch_size: 16
+  eval_batch_size: 4
   num_workers: 5
   scale_aug: false

@@ -154,8 +154,8 @@ class HMEDatamodule(pl.LightningDataModule):
     def __init__(
         self,
         folder: str = f"{os.path.dirname(os.path.realpath(__file__))}/../../data/crohme",
-        test_folder: str = "2014",
-        max_size: int = 32e4,
+        test_folder: str = str("2014"),
+        max_size: int = int(32e4),
         scale_to_limit: bool = True,
         train_batch_size: int = 8,
         eval_batch_size: int = 4,
@@ -200,18 +200,25 @@ class HMEDatamodule(pl.LightningDataModule):
                 self.scale_to_limit,
             )
         if stage == "test" or stage is None:
+            dataset = build_dataset(
+                self.folder,
+                self.test_folder,
+                self.eval_batch_size,
+                self.max_size,
+                False,
+            )
+
+            # Remove the 4th element (index 3)
+            if len(dataset) > 2:
+                dataset.pop(2)
+
             self.test_dataset = HMEDataset(
-                build_dataset(
-                    self.folder,
-                    self.test_folder,
-                    self.eval_batch_size,
-                    self.max_size,
-                    False,
-                ),
+                dataset,
                 False,
                 self.scale_aug,
                 self.scale_to_limit,
             )
+
 
     def train_dataloader(self):
         return DataLoader(

@@ -102,6 +102,7 @@ class MultiheadAttention(nn.Module):
         need_weights: bool = True,
         attn_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
+
         if not self._qkv_same_embed_dim:
             return multi_head_attention_forward(
                 query,
