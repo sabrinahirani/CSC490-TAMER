@@ -44,7 +44,7 @@ model:
     - 350
 data:
   folder: data/crohme
-  test_folder: 2014
+  test_folder: "2014"
   max_size: 320000
   scale_to_limit: true
   train_batch_size: 8
