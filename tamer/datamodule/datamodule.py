@@ -154,7 +154,7 @@ class HMEDatamodule(pl.LightningDataModule):
     def __init__(
         self,
         folder: str = f"{os.path.dirname(os.path.realpath(__file__))}/../../data/crohme",
-        test_folder: str = "2014",
+        test_folder: str = str("2014"),
         max_size: int = int(32e4),
         scale_to_limit: bool = True,
         train_batch_size: int = 8,
