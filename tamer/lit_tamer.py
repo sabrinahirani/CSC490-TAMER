@@ -124,24 +124,33 @@ class LitTAMER(pl.LightningModule):
     # helper (sampling)
     @torch.no_grad()
     def sample_output(self, img, mask, sample_size=8):
-
-        # randomly sample images from the batch
         batch_size = img.size(0)
+        
+        # Check that batch_size > 0
+        if batch_size == 0:
+            raise ValueError("Batch size is 0!")
+
         indices = torch.tensor(random.sample(range(batch_size), min(sample_size, batch_size)), device=self.device)
         
-        # subsample images and masks
         sampled_img = img[indices]
         sampled_mask = mask[indices]
-        
-        # generate predictions using beam search
+
+        # Debugging: Print shapes
+        print(f"Sampled img shape: {sampled_img.shape}, Sampled mask shape: {sampled_mask.shape}")
+
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
+        
         sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps]
+
+        if len(sampled_seqs) == 0:
+            return None, None  # Avoid empty sequences
 
         padded_seqs = torch.nn.utils.rnn.pad_sequence(
             sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
         )
-        
+
         return padded_seqs, indices
+
 
 
     
