@@ -81,6 +81,10 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
+        # debugging
+        print(f"img shape: {img.shape}, img_mask shape: {img_mask.shape}, tgt shape: {tgt.shape}")
+        assert img_mask.size(0) == img.size(0), "Batch size mismatch between img and img_mask"
+
         return self.tamer_model(img, img_mask, tgt)
     
     # Original Implementation:
@@ -162,6 +166,9 @@ class LitTAMER(pl.LightningModule):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
+
+        # debugging
+        print(f"out_hat shape: {out_hat.shape}, sim shape: {sim.shape}")
 
         # cross-entropy loss
         loss = ce_loss(out_hat, out)
