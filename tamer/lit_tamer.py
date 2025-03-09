@@ -140,12 +140,18 @@ class LitTAMER(pl.LightningModule):
 
         # Pad sequences to the maximum length
         if sampled_seqs:
-            max_len = max([seq.size(0) for seq in sampled_seqs])  # Find the maximum sequence length
+            max_len = max([seq.size(0) for seq in sampled_seqs])
             padded_seqs = torch.nn.utils.rnn.pad_sequence(
                 sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
             )
 
-        return padded_seqs, indices
+            # Create the correct tgt_pad_mask (for sampled batch size!)
+            tgt_pad_mask = padded_seqs == vocab.PAD_IDX
+
+            return padded_seqs, tgt_pad_mask, indices
+        else:
+            return None, None, indices
+
 
     
     # helper (negative log-likelihood los)
@@ -177,12 +183,14 @@ class LitTAMER(pl.LightningModule):
         # sampled
         with torch.no_grad():
             # randomly sample a small subset of images
-            sampled_tgt, sampled_indices = self.sample_output(batch.imgs, batch.mask)
+            sampled_tgt, sampled_tgt_pad_mask, sampled_indices = self.sample_output(batch.imgs, batch.mask)
 
         # extract sampled
         sampled_imgs = batch.imgs[sampled_indices]
         sampled_masks = batch.mask[sampled_indices]
-        sampled_out, _ = self(sampled_imgs, sampled_masks, sampled_tgt)
+        sampled_out, _ = self(
+            sampled_imgs, sampled_masks, sampled_tgt, tgt_key_padding_mask=sampled_tgt_pad_mask
+        )
         
         # sampled reward
         sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])

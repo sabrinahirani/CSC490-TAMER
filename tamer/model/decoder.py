@@ -163,8 +163,7 @@ class Decoder(DecodeModel):
         """
         _, l = tgt.size()
         tgt_mask = self._build_attention_mask(l)
-        # tgt_pad_mask = tgt == vocab.PAD_IDX
-        tgt_pad_mask = torch.cat([tgt == vocab.PAD_IDX, tgt == vocab.PAD_IDX], dim=0) # MODIFIED
+        tgt_pad_mask = tgt == vocab.PAD_IDX
 
         tgt = self.word_embed(tgt)  # [b, l, d]
         tgt = self.pos_enc(tgt)  # [b, l, d]
