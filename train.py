@@ -9,6 +9,9 @@ from tamer.lit_tamer import LitTAMER
 torch.backends.cudnn.benchmark = True 
 torch.backends.cudnn.deterministic = True 
 
+# clear cache
+torch.cuda.empty_cache()
+
 cli = LightningCLI(
     LitTAMER,
     HMEDatamodule,
