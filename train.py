@@ -6,10 +6,15 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
 
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.deterministic = True
-
+# clear cache to avoid fragmentation
 torch.cuda.empty_cache()
+
+# enable cudnn optimization
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.deterministic = False
+
+# force cuDNN to find a valid convolution algorithm
+torch.backends.cudnn.enabled = True
 
 from pytorch_lightning import Trainer
 
@@ -23,7 +28,8 @@ def main():
             'accumulate_grad_batches': 2,  # reduce memory spikes
             'callbacks': [
                 ModelCheckpoint(monitor='val_loss', save_top_k=3)
-            ]
+            ],
+            'auto_scale_batch_size': 'binsearch'  # dynamically reduce batch size
         }
     )
 
