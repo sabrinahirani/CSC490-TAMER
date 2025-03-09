@@ -123,7 +123,7 @@ class LitTAMER(pl.LightningModule):
     
     # helper (sampling)
     @torch.no_grad()
-    def sample_output(self, img, mask, sample_size=8):
+    def sample_output(self, img, mask, sample_size=4):
         batch_size = img.size(0)
         
         # Check that batch_size > 0
@@ -140,7 +140,9 @@ class LitTAMER(pl.LightningModule):
 
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
         
-        sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps]
+        sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps if h.seq]
+        if len(sampled_seqs) == 0:
+            return None, None
 
         # Debugging
         if sampled_seqs:
