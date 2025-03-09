@@ -142,12 +142,24 @@ class LitTAMER(pl.LightningModule):
         
         sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps]
 
+        # Debugging
+        if sampled_seqs:
+            print(f"sampled_seqs first: {sampled_seqs[0]}")
+        else:
+            print("sampled_seqs is empty!")
+
         if len(sampled_seqs) == 0:
             return None, None  # Avoid empty sequences
 
         padded_seqs = torch.nn.utils.rnn.pad_sequence(
             sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
         )
+
+        # Debugging
+        print(f"Padding index: {vocab.PAD_IDX}")
+        print(f"Sampled sequence shape: {padded_seqs.shape}")
+        print(f"Sampled tensor: {padded_seqs}")
+
 
         return padded_seqs, indices
 
@@ -192,6 +204,11 @@ class LitTAMER(pl.LightningModule):
         sampled_imgs = batch.imgs[sampled_indices]
         sampled_masks = batch.mask[sampled_indices]
         sampled_out, _ = self(sampled_imgs, sampled_masks, sampled_tgt)
+
+        # Debugging
+        print(f"sampled_tgt shape: {sampled_tgt.shape}")
+        print(f"sampled_out shape: {sampled_out.shape}")
+
         
         # sampled reward
         sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])
