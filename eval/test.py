@@ -7,10 +7,6 @@ from pytorch_lightning import Trainer, seed_everything
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
 
-# to resolve cuDNN issues
-torch.backends.cudnn.benchmark = True 
-torch.backends.cudnn.deterministic = True 
-
 seed_everything(7)
 years = {'2014': 986, '2016': 1147, '2019': 1199, 'test': 24607}
 

@@ -1,8 +1,13 @@
+import torch
 from pytorch_lightning.plugins.training_type.ddp import DDPPlugin
 from pytorch_lightning.utilities.cli import LightningCLI
 
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
+
+# to resolve cuDNN issues
+torch.backends.cudnn.benchmark = True 
+torch.backends.cudnn.deterministic = True 
 
 cli = LightningCLI(
     LitTAMER,
