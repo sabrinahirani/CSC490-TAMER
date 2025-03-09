@@ -120,12 +120,29 @@ class LitTAMER(pl.LightningModule):
         return reward
     
     # helper (sampling)
+    # @torch.no_grad()
+    # def sample_output(self, img, mask):
+    #     # using beam search
+    #     hyps = self.approximate_joint_search(img, mask)
+    #     sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
+    #     return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
+    
     @torch.no_grad()
     def sample_output(self, img, mask):
         # using beam search
         hyps = self.approximate_joint_search(img, mask)
-        sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
-        return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
+        
+        # Convert predictions to tensors
+        sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps]
+        padded_seqs = torch.nn.utils.rnn.pad_sequence(
+            sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
+        )
+        
+        # generate a new padding mask for sampled sequences
+        sampled_mask = (padded_seqs != vocab.PAD_IDX).to(torch.bool)
+        
+        return padded_seqs, sampled_mask
+
     
     # helper (negative log-likelihood los)
     def compute_nll_loss(self, logits, targets):
@@ -148,8 +165,9 @@ class LitTAMER(pl.LightningModule):
         baseline_out, sim = self(batch.imgs, batch.mask, tgt)
 
         # sampled output
-        sampled_tgt = self.sample_output(batch.imgs, batch.mask) 
-        sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
+        with torch.no_grad():
+            sampled_tgt, sampled_mask = self.sample_output(batch.imgs, batch.mask)
+        sampled_out, _ = self(batch.imgs, sampled_mask, sampled_tgt)
 
         # cross-entropy loss
         ce_loss = ce_loss(baseline_out, out)
