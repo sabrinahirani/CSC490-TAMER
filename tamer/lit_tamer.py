@@ -81,19 +81,7 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        print(f"Before reshaping: img_mask shape: {img_mask.shape}")  # Debugging
-        
-        # Keep img_mask's original shape for encoder
-        img_mask_for_encoder = img_mask  # Keep as (batch_size, height, width)
-        
-        # Reshape img_mask only for the Transformer key_padding_mask
-        img_mask_for_attention = img_mask.view(img_mask.shape[0], -1)  
-
-        print(f"Encoder img_mask shape: {img_mask_for_encoder.shape}")  # Debugging
-        print(f"Attention img_mask shape: {img_mask_for_attention.shape}")  # Debugging
-
-        return self.tamer_model(img, img_mask_for_encoder, tgt, img_mask_for_attention)
-
+        return self.tamer_model(img, img_mask, tgt)
     
     # Original Implementation:
     # -----------------------
@@ -139,7 +127,7 @@ class LitTAMER(pl.LightningModule):
 
         # randomly sample images from the batch
         batch_size = img.size(0)
-        indices = random.sample(range(batch_size), min(sample_size, batch_size))
+        indices = torch.tensor(random.sample(range(batch_size), min(sample_size, batch_size)), device=self.device)
         
         # subsample images and masks
         sampled_img = img[indices]
@@ -147,7 +135,7 @@ class LitTAMER(pl.LightningModule):
         
         # generate predictions using beam search
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
-        sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps]
+        sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps]
 
         padded_seqs = torch.nn.utils.rnn.pad_sequence(
             sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
