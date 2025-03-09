@@ -13,6 +13,8 @@ from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
 
+import random
+
 
 class LitTAMER(pl.LightningModule):
     def __init__(
@@ -120,28 +122,23 @@ class LitTAMER(pl.LightningModule):
         return reward
     
     # helper (sampling)
-    # @torch.no_grad()
-    # def sample_output(self, img, mask):
-    #     # using beam search
-    #     hyps = self.approximate_joint_search(img, mask)
-    #     sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
-    #     return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
-    
     @torch.no_grad()
-    def sample_output(self, img, mask):
-        # using beam search
-        hyps = self.approximate_joint_search(img, mask)
+    def sample_output(self, img, mask, sample_size=8):
+
+        # randomly sample images from the batch
+        batch_size = img.size(0)
+        indices = random.sample(range(batch_size), min(sample_size, batch_size))
         
-        # Convert predictions to tensors
+        # subsample images and masks
+        sampled_img = img[indices]
+        sampled_mask = mask[indices]
+        
+        # generate predictions using beam search
+        hyps = self.approximate_joint_search(sampled_img, sampled_mask)
         sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps]
-        padded_seqs = torch.nn.utils.rnn.pad_sequence(
-            sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
-        )
         
-        # generate a new padding mask for sampled sequences
-        sampled_mask = (padded_seqs != vocab.PAD_IDX).to(torch.bool)
-        
-        return padded_seqs, sampled_mask
+        return sampled_seqs, indices
+
 
     
     # helper (negative log-likelihood los)
@@ -160,25 +157,33 @@ class LitTAMER(pl.LightningModule):
     def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-
-        # baseline output
-        baseline_out, sim = self(batch.imgs, batch.mask, tgt)
-
-        # sampled output
-        with torch.no_grad():
-            sampled_tgt, sampled_mask = self.sample_output(batch.imgs, batch.mask)
-        sampled_out, _ = self(batch.imgs, sampled_mask, sampled_tgt)
+        out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
         # cross-entropy loss
-        ce_loss = ce_loss(baseline_out, out)
+        ce_loss = ce_loss(out_hat, out)
 
         # struct loss
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
+        # sampled
+        with torch.no_grad():
+            # randomly sample a small subset of images for reward training
+            sampled_tgt, sampled_indices = self.sample_output(batch.imgs, batch.mask)
+
+        # extract only the sampled
+        sampled_imgs = batch.imgs[sampled_indices]
+        sampled_masks = batch.mask[sampled_indices]
+        sampled_out, _ = self(sampled_imgs, sampled_masks, sampled_tgt)
+        
+        # compute reward only for sampled outputs
+        sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])
+
+        # baseline
+        baseline_reward = self.compute_reward(out_hat, out)
+
         # reinforce loss
-        baseline_reward = self.compute_reward(baseline_out, out)
-        sampled_reward = self.compute_reward(sampled_out, out)
-        reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
+        reinforce_loss = (sampled_reward - baseline_reward[sampled_indices].detach()) * self.compute_nll_loss(sampled_out, sampled_tgt)
+        reinforce_loss = reinforce_loss.mean()
 
         # combined loss
         loss = ce_loss + struct_loss + 0.5 * reinforce_loss
