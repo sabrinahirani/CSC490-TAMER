@@ -160,25 +160,27 @@ class LitTAMER(pl.LightningModule):
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
         # cross-entropy loss
-        ce_loss = ce_loss(out_hat, out)
+        loss = ce_loss(out_hat, out)
 
         # struct loss
-        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+        loss += ce_loss(sim, struct_out, ignore_idx=-1)
+
+        # self-critical sequence training:
 
         # sampled
         with torch.no_grad():
-            # randomly sample a small subset of images for reward training
+            # randomly sample a small subset of images
             sampled_tgt, sampled_indices = self.sample_output(batch.imgs, batch.mask)
 
-        # extract only the sampled
+        # extract sampled
         sampled_imgs = batch.imgs[sampled_indices]
         sampled_masks = batch.mask[sampled_indices]
         sampled_out, _ = self(sampled_imgs, sampled_masks, sampled_tgt)
         
-        # compute reward only for sampled outputs
+        # sampled reward
         sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])
 
-        # baseline
+        # baseline reward
         baseline_reward = self.compute_reward(out_hat, out)
 
         # reinforce loss
@@ -186,7 +188,7 @@ class LitTAMER(pl.LightningModule):
         reinforce_loss = reinforce_loss.mean()
 
         # combined loss
-        loss = ce_loss + struct_loss + 0.5 * reinforce_loss
+        loss += 0.5 * reinforce_loss
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
