@@ -81,13 +81,19 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        # debugging
-        print(f"img shape: {img.shape}, img_mask shape: {img_mask.shape}, tgt shape: {tgt.shape}")
-        assert img_mask.size(0) == img.size(0), "Batch size mismatch between img and img_mask"
+        print(f"Before reshaping: img_mask shape: {img_mask.shape}")  # Debugging
+        
+        # Keep img_mask's original shape for encoder
+        img_mask_for_encoder = img_mask  # Keep as (batch_size, height, width)
+        
+        # Reshape img_mask only for the Transformer key_padding_mask
+        img_mask_for_attention = img_mask.view(img_mask.shape[0], -1)  
 
-        img_mask = img_mask.view(img_mask.shape[0], -1)  
+        print(f"Encoder img_mask shape: {img_mask_for_encoder.shape}")  # Debugging
+        print(f"Attention img_mask shape: {img_mask_for_attention.shape}")  # Debugging
 
-        return self.tamer_model(img, img_mask, tgt)
+        return self.tamer_model(img, img_mask_for_encoder, tgt, img_mask_for_attention)
+
     
     # Original Implementation:
     # -----------------------
