@@ -1,8 +1,7 @@
 import os
 import torch
-from pytorch_lightning.plugins.training_type.ddp import DDPPlugin
 from pytorch_lightning.utilities.cli import LightningCLI
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
@@ -19,6 +18,10 @@ torch.backends.cudnn.deterministic = False
 # force cuDNN to find a valid convolution algorithm
 torch.backends.cudnn.enabled = True
 
+class ClearMemoryCallback(Callback):
+    def on_epoch_end(self, trainer, pl_module):
+        torch.cuda.empty_cache()
+
 from pytorch_lightning import Trainer
 
 def main():
@@ -30,9 +33,11 @@ def main():
             'precision': 16,  # enable mixed precision
             'accumulate_grad_batches': 2,  # reduce memory spikes
             'callbacks': [
-                ModelCheckpoint(monitor='val_loss', save_top_k=3)
+                ModelCheckpoint(monitor='val_loss', save_top_k=3),
+                ClearMemoryCallback()
             ],
-            'auto_scale_batch_size': 'binsearch'  # dynamically reduce batch size
+            'auto_scale_batch_size': 'binsearch',  # dynamically reduce batch size
+            'gpus': 1
         }
     )
 
