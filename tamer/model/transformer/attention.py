@@ -102,6 +102,10 @@ class MultiheadAttention(nn.Module):
         need_weights: bool = True,
         attn_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
+        
+        print("FORWARD", key_padding_mask.size(0))
+        print(key_padding_mask.size(0))
+
         if not self._qkv_same_embed_dim:
             return multi_head_attention_forward(
                 query,
@@ -180,6 +184,10 @@ def multi_head_attention_forward(
     assert embed_dim == embed_dim_to_check
     # allow MHA to have different sizes for the feature dimension
     assert key.size(0) == value.size(0) and key.size(1) == value.size(1)
+
+    print("MHA", key_padding_mask.size(0))
+    print(key_padding_mask.size(0))
+    key_padding_mask = None
 
     head_dim = embed_dim // num_heads
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
