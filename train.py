@@ -13,5 +13,4 @@ cli = LightningCLI(
     LitTAMER,
     HMEDatamodule,
     save_config_overwrite=True,
-    trainer_defaults={"plugins": DDPPlugin(find_unused_parameters=False)},
 )
