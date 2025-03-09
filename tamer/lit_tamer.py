@@ -125,43 +125,21 @@ class LitTAMER(pl.LightningModule):
     @torch.no_grad()
     def sample_output(self, img, mask, sample_size=4):
         batch_size = img.size(0)
-        
-        # Check that batch_size > 0
-        if batch_size == 0:
-            raise ValueError("Batch size is 0!")
+        print(batch_size)
+        batch_size = 4
 
         indices = torch.tensor(random.sample(range(batch_size), min(sample_size, batch_size)), device=self.device)
         
         sampled_img = img[indices]
         sampled_mask = mask[indices]
 
-        # Debugging: Print shapes
-        print(f"Sampled img shape: {sampled_img.shape}, Sampled mask shape: {sampled_mask.shape}")
-
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
         
         sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps if h.seq]
-        if len(sampled_seqs) == 0:
-            return None, None
-
-        # Debugging
-        if sampled_seqs:
-            print(f"sampled_seqs first: {sampled_seqs[0]}")
-        else:
-            print("sampled_seqs is empty!")
-
-        if len(sampled_seqs) == 0:
-            return None, None  # Avoid empty sequences
 
         padded_seqs = torch.nn.utils.rnn.pad_sequence(
             sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
         )
-
-        # Debugging
-        print(f"Padding index: {vocab.PAD_IDX}")
-        print(f"Sampled sequence shape: {padded_seqs.shape}")
-        print(f"Sampled tensor: {padded_seqs}")
-
 
         return padded_seqs, indices
 
@@ -186,9 +164,6 @@ class LitTAMER(pl.LightningModule):
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # debugging
-        print(f"out_hat shape: {out_hat.shape}, sim shape: {sim.shape}")
-
         # cross-entropy loss
         loss = ce_loss(out_hat, out)
 
@@ -206,11 +181,6 @@ class LitTAMER(pl.LightningModule):
         sampled_imgs = batch.imgs[sampled_indices]
         sampled_masks = batch.mask[sampled_indices]
         sampled_out, _ = self(sampled_imgs, sampled_masks, sampled_tgt)
-
-        # Debugging
-        print(f"sampled_tgt shape: {sampled_tgt.shape}")
-        print(f"sampled_out shape: {sampled_out.shape}")
-
         
         # sampled reward
         sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])
