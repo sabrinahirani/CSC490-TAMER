@@ -167,6 +167,9 @@ class LitTAMER(pl.LightningModule):
         # combined loss
         loss = ce_loss + struct_loss + 0.5 * reinforce_loss
 
+        # testing this out
+        torch.cuda.empty_cache()
+
         return loss
 
 
