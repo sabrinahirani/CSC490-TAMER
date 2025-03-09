@@ -19,7 +19,7 @@ def main():
         HMEDatamodule,
         save_config_overwrite=True,
         trainer_defaults={
-            'precision': '16-mixed',  # enable mixed precision
+            'precision': 16,  # enable mixed precision
             'accumulate_grad_batches': 2,  # reduce memory spikes
             'callbacks': [
                 ModelCheckpoint(monitor='val_loss', save_top_k=3)
