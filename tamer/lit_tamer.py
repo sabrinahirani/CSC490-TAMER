@@ -144,9 +144,6 @@ class LitTAMER(pl.LightningModule):
             padded_seqs = torch.nn.utils.rnn.pad_sequence(
                 sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
             )
-            # If the sequences have varying lengths, ensure that padding happens correctly
-            if padded_seqs.size(1) < max_len:
-                padded_seqs = F.pad(padded_seqs, (0, max_len - padded_seqs.size(1)), value=vocab.PAD_IDX)
 
         return padded_seqs, indices
 
