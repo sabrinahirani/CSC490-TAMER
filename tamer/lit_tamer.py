@@ -85,6 +85,8 @@ class LitTAMER(pl.LightningModule):
         print(f"img shape: {img.shape}, img_mask shape: {img_mask.shape}, tgt shape: {tgt.shape}")
         assert img_mask.size(0) == img.size(0), "Batch size mismatch between img and img_mask"
 
+        img_mask = img_mask.view(img_mask.shape[0], -1)  
+
         return self.tamer_model(img, img_mask, tgt)
     
     # Original Implementation:
