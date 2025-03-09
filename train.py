@@ -1,3 +1,4 @@
+import os
 import torch
 from pytorch_lightning.plugins.training_type.ddp import DDPPlugin
 from pytorch_lightning.utilities.cli import LightningCLI
@@ -8,6 +9,8 @@ from tamer.lit_tamer import LitTAMER
 
 # clear cache to avoid fragmentation
 torch.cuda.empty_cache()
+
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:256'
 
 # enable cudnn optimization
 torch.backends.cudnn.benchmark = True
