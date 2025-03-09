@@ -125,25 +125,30 @@ class LitTAMER(pl.LightningModule):
     @torch.no_grad()
     def sample_output(self, img, mask, sample_size=4):
         batch_size = img.size(0)
-        print(batch_size)
-        batch_size = 4
 
+        # Sample a subset of indices
         indices = torch.tensor(random.sample(range(batch_size), min(sample_size, batch_size)), device=self.device)
-        
+
         sampled_img = img[indices]
         sampled_mask = mask[indices]
 
+        # Generate hypotheses (sequences)
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
-        
+
+        # Filter out sequences
         sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps if h.seq]
 
-        padded_seqs = torch.nn.utils.rnn.pad_sequence(
-            sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
-        )
+        # Pad sequences to the maximum length
+        if sampled_seqs:
+            max_len = max([seq.size(0) for seq in sampled_seqs])  # Find the maximum sequence length
+            padded_seqs = torch.nn.utils.rnn.pad_sequence(
+                sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
+            )
+            # If the sequences have varying lengths, ensure that padding happens correctly
+            if padded_seqs.size(1) < max_len:
+                padded_seqs = F.pad(padded_seqs, (0, max_len - padded_seqs.size(1)), value=vocab.PAD_IDX)
 
         return padded_seqs, indices
-
-
 
     
     # helper (negative log-likelihood los)
