@@ -136,8 +136,12 @@ class LitTAMER(pl.LightningModule):
         # generate predictions using beam search
         hyps = self.approximate_joint_search(sampled_img, sampled_mask)
         sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps]
+
+        padded_seqs = torch.nn.utils.rnn.pad_sequence(
+            sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
+        )
         
-        return sampled_seqs, indices
+        return padded_seqs, indices
 
 
     
