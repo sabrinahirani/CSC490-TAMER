@@ -10,7 +10,7 @@ from tamer.lit_tamer import LitTAMER
 # clear cache to avoid fragmentation
 torch.cuda.empty_cache()
 
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:256'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
 # enable cudnn optimization
 torch.backends.cudnn.benchmark = True
