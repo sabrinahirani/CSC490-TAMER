@@ -74,23 +74,23 @@ class LitTAMER(pl.LightningModule):
     # Original Implementation:
     # -----------------------
 
-    # def training_step(self, batch: Batch, _):
-    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
-    #     struct_out, _ = to_struct_output(batch.indices, self.device)
-    #     out_hat, sim = self(batch.imgs, batch.mask, tgt)
+    def training_step(self, batch: Batch, _):
+        tgt, out = to_bi_tgt_out(batch.indices, self.device)
+        struct_out, _ = to_struct_output(batch.indices, self.device)
+        out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-    #     loss = ce_loss(out_hat, out)
-    #     self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-    #     self.log(
-    #         "train/struct_loss",
-    #         struct_loss,
-    #         on_step=False,
-    #         on_epoch=True,
-    #         sync_dist=True,
-    #     )
+        loss = ce_loss(out_hat, out)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+        self.log(
+            "train/struct_loss",
+            struct_loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
-    #     return loss + struct_loss
+        return loss + struct_loss
 
 
 
@@ -98,54 +98,30 @@ class LitTAMER(pl.LightningModule):
     # -------------------------------
 
     # reward function
-    def compute_reward(self, pred, target):
-        pred_seq = pred.argmax(dim=-1).tolist()
-        target_seq = target.argmax(dim=-1).tolist()
+    def compute_reward(self, pred_out, target_out):
+        pred_seq = pred_out.argmax(dim=-1) 
+        target_seq = target_out.argmax(dim=-1)
 
-        # compute levenshein distance for reward signal (vectorized)
-        reward = -torch.tensor(
-            [editdistance.eval(p, t) for p, t in zip(pred_seq, target_seq)], 
-            device=self.device, dtype=torch.float
-        )
-        return reward
+        # compute levenshein distance for reward signal
+        reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
+
+        return torch.tensor(reward, dtype=torch.float, device=self.device)
     
     # helper (sampling)
-    @torch.no_grad()
-    def sample_output(self, img, mask, sample_size=4):
-        batch_size = img.size(0)
+    def sample_output(self, img, mask):
 
-        # Sample a subset of indices
-        indices = torch.tensor(random.sample(range(batch_size), min(sample_size, batch_size)), device=self.device)
+        # using beam search
+        hyps = self.approximate_joint_search(img, mask) 
+        sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
 
-        sampled_img = img[indices]
-        sampled_mask = mask[indices]
-
-        # Generate hypotheses (sequences)
-        hyps = self.approximate_joint_search(sampled_img, sampled_mask)
-
-        # Filter out sequences
-        sampled_seqs = [torch.tensor(h.seq, dtype=torch.long, device=self.device) for h in hyps if h.seq]
-
-        # Pad sequences to the maximum length
-        if sampled_seqs:
-            max_len = max([seq.size(0) for seq in sampled_seqs])
-            padded_seqs = torch.nn.utils.rnn.pad_sequence(
-                sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX
-            )
-
-            # Create the correct tgt_pad_mask (for sampled batch size!)
-            tgt_pad_mask = padded_seqs == vocab.PAD_IDX
-
-            return padded_seqs, tgt_pad_mask, indices
-        else:
-            return None, None, indices
-
-
+        return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
     
     # helper (negative log-likelihood los)
     def compute_nll_loss(self, logits, targets):
+
         # apply log-softmax to logits to get log probabilities
         log_probs = F.log_softmax(logits, dim=-1)  # [batch_size, seq_len, vocab_size]
+        
         # flatten the logits and targets to make them compatible with nll_loss
         loss = F.nll_loss(
             log_probs.view(-1, log_probs.size(-1)),
@@ -158,43 +134,58 @@ class LitTAMER(pl.LightningModule):
     def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim = self(batch.imgs, batch.mask, tgt)
+
+        # baseline output
+        baseline_out, sim = self(batch.imgs, batch.mask, tgt)
+
+        # sampled output
+        sampled_tgt = self.sample_output(batch.imgs, batch.mask) 
+        sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
 
         # cross-entropy loss
-        loss = ce_loss(out_hat, out)
+        ce_loss = ce_loss(baseline_out, out)
 
         # struct loss
-        loss += ce_loss(sim, struct_out, ignore_idx=-1)
-
-        # self-critical sequence training:
-
-        # sampled
-        with torch.no_grad():
-            # randomly sample a small subset of images
-            sampled_tgt, sampled_tgt_pad_mask, sampled_indices = self.sample_output(batch.imgs, batch.mask)
-
-        # extract sampled
-        sampled_imgs = batch.imgs[sampled_indices]
-        sampled_masks = batch.mask[sampled_indices]
-        sampled_out, _ = self(
-            sampled_imgs, sampled_masks, sampled_tgt, tgt_key_padding_mask=sampled_tgt_pad_mask
-        )
-        
-        # sampled reward
-        sampled_reward = self.compute_reward(sampled_out, out[sampled_indices])
-
-        # baseline reward
-        baseline_reward = self.compute_reward(out_hat, out)
+        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
         # reinforce loss
-        reinforce_loss = (sampled_reward - baseline_reward[sampled_indices].detach()) * self.compute_nll_loss(sampled_out, sampled_tgt)
-        reinforce_loss = reinforce_loss.mean()
+        baseline_reward = self.compute_reward(baseline_out, out)
+        sampled_reward = self.compute_reward(sampled_out, out)
+        reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
 
         # combined loss
-        loss += 0.5 * reinforce_loss
+        loss = ce_loss + struct_loss + 0.5 * reinforce_loss
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
+    
+
+    # def training_step(self, batch: Batch, _):
+    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
+    #     struct_out, _ = to_struct_output(batch.indices, self.device)
+
+    #     # baseline output
+    #     baseline_out, sim = self(batch.imgs, batch.mask, tgt)
+
+    #     # sampled output
+    #     sampled_tgt = self.sample_output(batch.imgs, batch.mask) 
+    #     sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
+
+    #     # cross-entropy loss
+    #     ce_loss = ce_loss(baseline_out, out)
+
+    #     # struct loss
+    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+
+    #     # reinforce loss
+    #     baseline_reward = self.compute_reward(baseline_out, out)
+    #     sampled_reward = self.compute_reward(sampled_out, out)
+    #     reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
+
+    #     # combined loss
+    #     loss = ce_loss + struct_loss + 0.5 * reinforce_loss
+
+    #     return loss
 
 
 
