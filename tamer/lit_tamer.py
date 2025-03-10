@@ -98,66 +98,64 @@ class LitTAMER(pl.LightningModule):
     # -------------------------------
 
     # reward function
-    def compute_reward(self, pred_out, target_out):
-        pred_seq = pred_out.argmax(dim=-1) 
-        target_seq = target_out.argmax(dim=-1)
+    # def compute_reward(self, pred_out, target_out):
+    #     pred_seq = pred_out.argmax(dim=-1) 
+    #     target_seq = target_out.argmax(dim=-1)
 
-        # compute levenshein distance for reward signal
-        reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
+    #     # compute levenshein distance for reward signal
+    #     reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
 
-        return torch.tensor(reward, dtype=torch.float, device=self.device)
+    #     return torch.tensor(reward, dtype=torch.float, device=self.device)
     
-    # helper (sampling)
-    @torch.no_grad()
-    def sample_output(self, img, mask):
+    def compute_reward(self, generated: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
-        # using beam search
-        hyps = self.approximate_joint_search(img, mask)
-        sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
-        return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
-    
-    # helper (negative log-likelihood los)
-    def compute_nll_loss(self, logits, targets):
+        rewards = []
+        batch_size = generated.size(0)
 
-        # apply log-softmax to logits to get log probabilities
-        log_probs = F.log_softmax(logits, dim=-1)  # [batch_size, seq_len, vocab_size]
+        for i in range(batch_size):
+            gen_seq = generated[i].cpu().numpy()
+            tgt_seq = target[i].cpu().numpy()
+
+            # Calculate edit distance between the generated and target sequence (for each example)
+            dist = editdistance.eval(' '.join(map(str, gen_seq)), ' '.join(map(str, tgt_seq)))
+
+            # Reward is the inverse of the distance
+            reward = 1.0 / (1.0 + dist)  # Lower distance gives higher reward
+            rewards.append(reward)
         
-        # flatten the logits and targets to make them compatible with nll_loss
-        loss = F.nll_loss(
-            log_probs.view(-1, log_probs.size(-1)),
-            targets.view(-1),
-            ignore_index=vocab.PAD_IDX
-        )
-        return loss
-    
+        return torch.tensor(rewards, dtype=torch.float).to(generated.device)
 
     def training_step(self, batch: Batch, _):
+        
+        # Original target and generated output
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
 
-        # baseline output
-        baseline_out, sim = self(batch.imgs, batch.mask, tgt)
+        # Forward pass (generation)
+        out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # sampled output
-        sampled_tgt = self.sample_output(batch.imgs, batch.mask) 
-        sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
+        # Convert the predicted indices to words
+        generated_sequences = out_hat.argmax(dim=-1)  # [batch_size, seq_len]
+        target_sequences = batch.indices  # [batch_size, seq_len]
 
-        # cross-entropy loss
-        loss = ce_loss(baseline_out, out)
+        # Compute reward (based on edit distance or other metric)
+        reward = self.compute_reward(generated_sequences, target_sequences)
 
-        # struct loss
-        loss += ce_loss(sim, struct_out, ignore_idx=-1)
+        # Standard CE loss
+        ce_loss_value = ce_loss(out_hat, out)
+        self.log("train_loss", ce_loss_value, on_step=False, on_epoch=True, sync_dist=True)
 
-        # reinforce loss
-        baseline_reward = self.compute_reward(baseline_out, out)
-        sampled_reward = self.compute_reward(sampled_out, out)
-        reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
+        # Struct loss
+        struct_loss_value = ce_loss(sim, struct_out, ignore_idx=-1)
+        self.log("train/struct_loss", struct_loss_value, on_step=False, on_epoch=True, sync_dist=True)
 
-        # combined loss
-        loss += 0.5 * reinforce_loss
-        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        # SCST loss (we use rewards to scale the loss)
+        scst_loss = F.mse_loss(out_hat, out)  # Use some loss function for SCST
+        scst_loss = scst_loss * reward.view(-1, 1)  # Scale by the reward for each sequence
 
-        return loss
+        total_loss = ce_loss_value + struct_loss_value + scst_loss.mean()
+
+        return total_loss
     
 
     # def training_step(self, batch: Batch, _):
