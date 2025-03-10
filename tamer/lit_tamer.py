@@ -98,35 +98,18 @@ class LitTAMER(pl.LightningModule):
     # -------------------------------
 
     # reward function
-    # def compute_reward(self, pred_out, target_out):
-    #     pred_seq = pred_out.argmax(dim=-1) 
-    #     target_seq = target_out.argmax(dim=-1)
+    def compute_reward(self, pred_out, target_out):
+        pred_seq = pred_out.argmax(dim=-1) 
+        target_seq = target_out.argmax(dim=-1)
 
-    #     # compute levenshein distance for reward signal
-    #     reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
+        # compute levenshein distance for reward signal
+        reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
 
-    #     return torch.tensor(reward, dtype=torch.float, device=self.device)
+        return torch.tensor(reward, dtype=torch.float, device=self.device)
     
-    def compute_reward(self, generated: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-
-        rewards = []
-        batch_size = generated.size(0)
-
-        for i in range(batch_size):
-            gen_seq = generated[i].cpu().numpy()
-            tgt_seq = target[i].cpu().numpy()
-
-            # Calculate edit distance between the generated and target sequence (for each example)
-            dist = editdistance.eval(' '.join(map(str, gen_seq)), ' '.join(map(str, tgt_seq)))
-
-            # Reward is the inverse of the distance
-            reward = 1.0 / (1.0 + dist)  # Lower distance gives higher reward
-            rewards.append(reward)
-        
-        return torch.tensor(rewards, dtype=torch.float).to(generated.device)
 
     def training_step(self, batch: Batch, _):
-        
+
         # Original target and generated output
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
