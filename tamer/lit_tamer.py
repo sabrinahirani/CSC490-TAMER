@@ -63,25 +63,13 @@ class LitTAMER(pl.LightningModule):
         self.exprate_recorder = ExpRateRecorder()
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor,
+        tgt_key_padding_mask: torch.BoolTensor = None
     ) -> FloatTensor:
-        """run img and bi-tgt
+        return self.tamer_model(
+        img, img_mask, tgt, tgt_key_padding_mask=tgt_key_padding_mask
+        )
 
-        Parameters
-        ----------
-        img : FloatTensor
-            [b, 1, h, w]
-        img_mask: LongTensor
-            [b, h, w]
-        tgt : LongTensor
-            [2b, l]
-
-        Returns
-        -------
-        FloatTensor
-            [2b, l, vocab_size]
-        """
-        return self.tamer_model(img, img_mask, tgt)
     
     # Original Implementation:
     # -----------------------
