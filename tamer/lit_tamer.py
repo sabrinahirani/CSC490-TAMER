@@ -98,18 +98,53 @@ class LitTAMER(pl.LightningModule):
     # -------------------------------
 
     # reward function
-    def compute_reward(self, pred_out, target_out):
-        pred_seq = pred_out.argmax(dim=-1) 
-        target_seq = target_out.argmax(dim=-1)
+    # def compute_reward(self, pred_out, target_out):
+    #     pred_seq = pred_out.argmax(dim=-1) 
+    #     target_seq = target_out.argmax(dim=-1)
 
-        # compute levenshein distance for reward signal
-        reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
+    #     # compute levenshein distance for reward signal
+    #     reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
 
-        return torch.tensor(reward, dtype=torch.float, device=self.device)
+    #     return torch.tensor(reward, dtype=torch.float, device=self.device)
     
+    def compute_reward(self, pred_out, target_out):
+        """
+        Compute reward using Levenshtein distance (edit distance).
+        
+        Args:
+        - pred_out (Tensor): [batch_size, seq_len] predicted token indices
+        - target_out (Tensor): [batch_size, seq_len] target token indices
+        
+        Returns:
+        - reward (Tensor): A tensor of shape [batch_size] containing the reward for each sequence
+        """
+        batch_size = pred_out.size(0)
+
+        # List to store the rewards for each sequence
+        rewards = []
+
+        # Ensure pred_out and target_out are PyTorch tensors
+        pred_out = pred_out.long()  # Ensure correct dtype for the indices
+        target_out = target_out.long()
+
+        # Compute Levenshtein distance for each pair of generated (pred_out) and target (target_out)
+        for i in range(batch_size):
+            # Convert the sequences to lists of tokens for edit distance calculation
+            pred_seq = pred_out[i].cpu().numpy().tolist()  # Convert to list for editdistance
+            target_seq = target_out[i].cpu().numpy().tolist()
+
+            # Compute edit distance (Levenshtein distance)
+            dist = editdistance.eval(pred_seq, target_seq)
+
+            # Reward is the negative of the distance (lower distance means better match)
+            reward = -dist
+            rewards.append(reward)
+
+        # Convert the list of rewards to a tensor and return it
+        return torch.tensor(rewards, dtype=torch.float, device=self.device)
 
     def training_step(self, batch: Batch, _):
-
+        
         # Original target and generated output
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
