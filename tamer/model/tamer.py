@@ -43,7 +43,7 @@ class TAMER(pl.LightningModule):
         )
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor, tgt_key_padding_mask
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor, tgt_key_padding_mask=None
     ) -> FloatTensor:
         """run img and bi-tgt
 
