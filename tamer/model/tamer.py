@@ -65,7 +65,7 @@ class TAMER(pl.LightningModule):
         feature = torch.cat((feature, feature), dim=0)  # [2b, t, d]
         mask = torch.cat((mask, mask), dim=0)
 
-        if tgt_key_padding_mask:
+        if tgt_key_padding_mask is not None:
             return self.decoder(feature, mask, tgt, tgt_key_padding_mask=tgt_key_padding_mask)
         else:
             return self.decoder(feature, mask, tgt)
