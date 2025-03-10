@@ -123,9 +123,11 @@ class LitTAMER(pl.LightningModule):
         # List to store the rewards for each sequence
         rewards = []
 
-        # Ensure pred_out and target_out are PyTorch tensors
-        pred_out = pred_out.long()  # Ensure correct dtype for the indices
-        target_out = target_out.long()
+        # Ensure both pred_out and target_out are tensors (convert them if they are not)
+        if isinstance(pred_out, list):
+            pred_out = torch.tensor(pred_out, dtype=torch.long, device=self.device)
+        if isinstance(target_out, list):
+            target_out = torch.tensor(target_out, dtype=torch.long, device=self.device)
 
         # Compute Levenshtein distance for each pair of generated (pred_out) and target (target_out)
         for i in range(batch_size):
@@ -143,21 +145,15 @@ class LitTAMER(pl.LightningModule):
         # Convert the list of rewards to a tensor and return it
         return torch.tensor(rewards, dtype=torch.float, device=self.device)
 
-    def training_step(self, batch: Batch, _):
-        
-        # Original target and generated output
+    def training_step(self, batch: Batch, batch_idx: int):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
 
         # Forward pass (generation)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # Convert the predicted indices to words
-        generated_sequences = out_hat.argmax(dim=-1)  # [batch_size, seq_len]
-        target_sequences = batch.indices  # [batch_size, seq_len]
-
-        # Compute reward (based on edit distance or other metric)
-        reward = self.compute_reward(generated_sequences, target_sequences)
+        # Compute the reward using the updated compute_reward function
+        reward = self.compute_reward(out_hat.argmax(dim=-1), batch.indices)
 
         # Standard CE loss
         ce_loss_value = ce_loss(out_hat, out)
@@ -167,10 +163,11 @@ class LitTAMER(pl.LightningModule):
         struct_loss_value = ce_loss(sim, struct_out, ignore_idx=-1)
         self.log("train/struct_loss", struct_loss_value, on_step=False, on_epoch=True, sync_dist=True)
 
-        # SCST loss (we use rewards to scale the loss)
-        scst_loss = F.mse_loss(out_hat, out)  # Use some loss function for SCST
+        # SCST loss (scaled by reward)
+        scst_loss = F.mse_loss(out_hat, out)  # Base SCST loss (you can change it if needed)
         scst_loss = scst_loss * reward.view(-1, 1)  # Scale by the reward for each sequence
 
+        # Total loss: Combine CE loss, struct loss, and SCST loss
         total_loss = ce_loss_value + struct_loss_value + scst_loss.mean()
 
         return total_loss
