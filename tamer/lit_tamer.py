@@ -97,110 +97,42 @@ class LitTAMER(pl.LightningModule):
     # Self-Critical Sequence Training:
     # -------------------------------
 
-    # reward function
-    # def compute_reward(self, pred_out, target_out):
-    #     pred_seq = pred_out.argmax(dim=-1) 
-    #     target_seq = target_out.argmax(dim=-1)
+    def forward(self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor) -> FloatTensor:
+        return self.tamer_model(img, img_mask, tgt)
 
-    #     # compute levenshein distance for reward signal
-    #     reward = -editdistance.eval(pred_seq.tolist(), target_seq.tolist())  
+    def generate_baseline(self, imgs, masks):
+        with torch.no_grad():
+            return self.tamer_model.beam_search(imgs, masks, **self.hparams)
 
-    #     return torch.tensor(reward, dtype=torch.float, device=self.device)
-    
-    def compute_reward(self, pred_out, target_out):
-        """
-        Compute reward using Levenshtein distance (edit distance).
-        
-        Args:
-        - pred_out (Tensor): [batch_size, seq_len] predicted token indices
-        - target_out (Tensor): [batch_size, seq_len] target token indices
-        
-        Returns:
-        - reward (Tensor): A tensor of shape [batch_size] containing the reward for each sequence
-        """
-        batch_size = pred_out.size(0)
+    def generate_sample(self, imgs, masks):
+        return self.tamer_model.sample(imgs, masks, **self.hparams)
 
-        # List to store the rewards for each sequence
-        rewards = []
+    def compute_reward(self, preds, targets):
+        return torch.tensor([1 - (editdistance.eval(p, t) / max(len(t), 1)) for p, t in zip(preds, targets)], device=self.device)
 
-        # Ensure both pred_out and target_out are tensors (convert them if they are not)
-        if isinstance(pred_out, list):
-            pred_out = torch.tensor(pred_out, dtype=torch.long, device=self.device)
-        if isinstance(target_out, list):
-            target_out = torch.tensor(target_out, dtype=torch.long, device=self.device)
-
-        # Compute Levenshtein distance for each pair of generated (pred_out) and target (target_out)
-        for i in range(batch_size):
-            # Convert the sequences to lists of tokens for edit distance calculation
-            pred_seq = pred_out[i].cpu().numpy().tolist()  # Convert to list for editdistance
-            target_seq = target_out[i].cpu().numpy().tolist()
-
-            # Compute edit distance (Levenshtein distance)
-            dist = editdistance.eval(pred_seq, target_seq)
-
-            # Reward is the negative of the distance (lower distance means better match)
-            reward = -dist
-            rewards.append(reward)
-
-        # Convert the list of rewards to a tensor and return it
-        return torch.tensor(rewards, dtype=torch.float, device=self.device)
-
-    def training_step(self, batch: Batch, batch_idx: int):
+    def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-
-        # Forward pass (generation)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
+        ce_loss_val = ce_loss(out_hat, out)
+        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # Compute the reward using the updated compute_reward function
-        reward = self.compute_reward(out_hat.argmax(dim=-1), batch.indices)
+        # SCST
+        baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
+        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+        baseline_seqs = [h.seq for h in baseline_hyps]
+        sampled_seqs = [h.seq for h in sampled_hyps]
+        gts = [vocab.indices2words(ind) for ind in batch.indices]
 
-        # Standard CE loss
-        ce_loss_value = ce_loss(out_hat, out)
-        self.log("train_loss", ce_loss_value, on_step=False, on_epoch=True, sync_dist=True)
+        baseline_reward = self.compute_reward(baseline_seqs, gts)
+        sampled_reward = self.compute_reward(sampled_seqs, gts)
+        reward_diff = (sampled_reward - baseline_reward).detach()
+        log_probs = torch.stack([h.log_prob for h in sampled_hyps])
+        scst_loss = -torch.mean(reward_diff * log_probs)
 
-        # Struct loss
-        struct_loss_value = ce_loss(sim, struct_out, ignore_idx=-1)
-        self.log("train/struct_loss", struct_loss_value, on_step=False, on_epoch=True, sync_dist=True)
-
-        # SCST loss (scaled by reward)
-        scst_loss = F.mse_loss(out_hat, out)  # Base SCST loss (you can change it if needed)
-        scst_loss = scst_loss * reward.view(-1, 1)  # Scale by the reward for each sequence
-
-        # Total loss: Combine CE loss, struct loss, and SCST loss
-        total_loss = ce_loss_value + struct_loss_value + scst_loss.mean()
-
-        return total_loss
-    
-
-    # def training_step(self, batch: Batch, _):
-    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
-    #     struct_out, _ = to_struct_output(batch.indices, self.device)
-
-    #     # baseline output
-    #     baseline_out, sim = self(batch.imgs, batch.mask, tgt)
-
-    #     # sampled output
-    #     sampled_tgt = self.sample_output(batch.imgs, batch.mask) 
-    #     sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
-
-    #     # cross-entropy loss
-    #     ce_loss = ce_loss(baseline_out, out)
-
-    #     # struct loss
-    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-
-    #     # reinforce loss
-    #     baseline_reward = self.compute_reward(baseline_out, out)
-    #     sampled_reward = self.compute_reward(sampled_out, out)
-    #     reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
-
-    #     # combined loss
-    #     loss = ce_loss + struct_loss + 0.5 * reinforce_loss
-
-    #     return loss
-
-
+        loss = ce_loss_val + struct_loss + scst_loss
+        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+        return loss
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
