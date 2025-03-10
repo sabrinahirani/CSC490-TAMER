@@ -108,12 +108,12 @@ class LitTAMER(pl.LightningModule):
         return torch.tensor(reward, dtype=torch.float, device=self.device)
     
     # helper (sampling)
+    @torch.no_grad()
     def sample_output(self, img, mask):
 
         # using beam search
-        hyps = self.approximate_joint_search(img, mask) 
+        hyps = self.approximate_joint_search(img, mask)
         sampled_seqs = [torch.tensor(h.seq, device=self.device) for h in hyps] # convert predictions to tensor
-
         return torch.nn.utils.rnn.pad_sequence(sampled_seqs, batch_first=True, padding_value=vocab.PAD_IDX) # ensure same length using padding
     
     # helper (negative log-likelihood los)
