@@ -74,23 +74,23 @@ class LitTAMER(pl.LightningModule):
     # Original Implementation:
     # -----------------------
 
-    def training_step(self, batch: Batch, _):
-        tgt, out = to_bi_tgt_out(batch.indices, self.device)
-        struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim = self(batch.imgs, batch.mask, tgt)
+    # def training_step(self, batch: Batch, _):
+    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
+    #     struct_out, _ = to_struct_output(batch.indices, self.device)
+    #     out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        loss = ce_loss(out_hat, out)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-        self.log(
-            "train/struct_loss",
-            struct_loss,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
+    #     loss = ce_loss(out_hat, out)
+    #     self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+    #     self.log(
+    #         "train/struct_loss",
+    #         struct_loss,
+    #         on_step=False,
+    #         on_epoch=True,
+    #         sync_dist=True,
+    #     )
 
-        return loss + struct_loss
+    #     return loss + struct_loss
 
 
 
@@ -143,10 +143,10 @@ class LitTAMER(pl.LightningModule):
         sampled_out, _ = self(batch.imgs, batch.mask, sampled_tgt)
 
         # cross-entropy loss
-        ce_loss = ce_loss(baseline_out, out)
+        loss = ce_loss(baseline_out, out)
 
         # struct loss
-        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+        loss += ce_loss(sim, struct_out, ignore_idx=-1)
 
         # reinforce loss
         baseline_reward = self.compute_reward(baseline_out, out)
@@ -154,7 +154,7 @@ class LitTAMER(pl.LightningModule):
         reinforce_loss = (sampled_reward - baseline_reward) * self.compute_nll_loss(sampled_out, sampled_tgt)
 
         # combined loss
-        loss = ce_loss + struct_loss + 0.5 * reinforce_loss
+        loss += 0.5 * reinforce_loss
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return loss
