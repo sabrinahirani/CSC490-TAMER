@@ -67,8 +67,12 @@ class StructSim(nn.Module):
 
         # Ensure the sequence length is divisible by 2
         if out.size(1) % 2 != 0:
-            out = out[:, :-1]  # Simply truncate the last token to make it even
+            out = out[:, :-1]  # Truncate the last token if odd
             src_key_padding_mask = src_key_padding_mask[:, :-1]
+
+        # Avoid chunking if the input size becomes zero
+        if out.size(1) == 0:
+            return torch.zeros_like(out[:, :, 0])  # Return zeros with valid shape
 
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
