@@ -231,7 +231,7 @@ class Decoder(DecodeModel):
         device = features[0].device
 
         # Initialize sequences with start token
-        seqs = torch.full((batch_size, 1), self.vocab.SOS_IDX, dtype=torch.long, device=device)
+        seqs = torch.full((batch_size, 1), vocab.SOS_IDX, dtype=torch.long, device=device)
         log_probs = []
 
         for _ in range(max_len):
@@ -252,7 +252,7 @@ class Decoder(DecodeModel):
             log_probs.append(log_prob)
 
             # Stop sampling if all sequences generate an end token
-            if (next_tokens == self.vocab.EOS_IDX).all():
+            if (next_tokens == vocab.EOS_IDX).all():
                 break
 
         # Convert results into Hypothesis objects
