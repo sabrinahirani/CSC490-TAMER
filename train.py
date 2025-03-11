@@ -23,6 +23,11 @@ torch.backends.cuda.max_split_size_mb = 64
 
 from pytorch_lightning import Trainer
 
+class PrintProfilerCallback(Callback):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        if trainer.profiler is not None:
+            print(trainer.profiler.summary())
+
 def main():
     cli = LightningCLI(
         LitTAMER,
@@ -33,11 +38,12 @@ def main():
             'accumulate_grad_batches': 2,  # reduce memory spikes
             'callbacks': [
                 ModelCheckpoint(monitor='val_loss', save_top_k=3),
+                PrintProfilerCallback()
               #  ClearMemoryCallback()
             ],
             'auto_scale_batch_size': 'binsearch',  # dynamically reduce batch size
             'gpus': 1,
-            'profiler': AdvancedProfiler(output_filename="profiler_output.txt")
+            'profiler': 'simple'
         }
     )
 
