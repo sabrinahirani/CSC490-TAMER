@@ -235,9 +235,9 @@ class Decoder(DecodeModel):
         log_probs = []
 
         for _ in range(max_len):
-            # Decode the current sequence
-            logits = self.forward(features[0], masks[0], seqs)  # [b, L, vocab_size]
-            logits = logits[:, -1, :]  # Take the last time step
+            # Decode the current sequence (only get `out`, ignore `sim`)
+            out, _ = self.forward(features[0], masks[0], seqs)  # Unpack the tuple
+            logits = out[:, -1, :]  # Take the last time step
 
             # Apply temperature
             logits /= temperature
@@ -260,3 +260,4 @@ class Decoder(DecodeModel):
         hypotheses = [Hypothesis(seq.tolist(), log_prob.item()) for seq, log_prob in zip(seqs, log_probs)]
 
         return hypotheses
+
