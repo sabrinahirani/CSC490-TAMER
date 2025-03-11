@@ -127,7 +127,7 @@ class LitTAMER(pl.LightningModule):
         baseline_reward = self.compute_reward(baseline_seqs, gts)
         sampled_reward = self.compute_reward(sampled_seqs, gts)
         reward_diff = (sampled_reward - baseline_reward).detach()
-        log_probs = torch.stack([h.log_prob for h in sampled_hyps])
+        log_probs = torch.stack([h.score for h in sampled_hyps])
         scst_loss = -torch.mean(reward_diff * log_probs)
 
         loss = ce_loss_val + struct_loss + scst_loss
