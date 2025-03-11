@@ -65,11 +65,6 @@ class StructSim(nn.Module):
 
     def forward(self, out, src_key_padding_mask):
 
-        if out.size(1) % 2 != 0:
-            out = F.pad(out[:, :-1], (0, 0, 0, 1))
-            src_key_padding_mask = F.pad(src_key_padding_mask[:, :-1], (0, 1), value=True)
-
-
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
         
@@ -258,10 +253,6 @@ class Decoder(DecodeModel):
             # Stop sampling if all sequences generate an end token
             if (next_tokens == vocab.EOS_IDX).all():
                 break
-
-        # Ensure the sequence length is even before chunking
-        if seqs.size(1) % 2 != 0:
-            seqs = seqs[:, :-1]  # Simply truncate the last token if odd
 
         log_probs = torch.stack(log_probs, dim=1).sum(dim=1)
 
