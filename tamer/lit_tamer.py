@@ -15,12 +15,11 @@ from tamer.utils.utils import (
 
 from rapidfuzz.distance import Levenshtein
 import numpy as np
-import numba
 # import gc
 
-
 def levenshtein_batch(preds, targets):
-    distances = np.array([Levenshtein.normalized_distance(p, t) for p, t in zip(preds, targets)], dtype=np.float32)
+    """Efficient batch computation of normalized Levenshtein distance."""
+    distances = np.array(Levenshtein.normalized_distance(preds, targets), dtype=np.float32)
     return torch.tensor(1 - distances, device="cuda" if torch.cuda.is_available() else "cpu")
 
 class LitTAMER(pl.LightningModule):
@@ -110,45 +109,37 @@ class LitTAMER(pl.LightningModule):
         return levenshtein_batch(preds, targets)
 
     def training_step(self, batch: Batch, _):
-        # One forward pass only
+        # Forward Pass
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # Compute cross-entropy and structural loss
+        # Compute Losses
         ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # --- Generate Baseline (NO GRADIENTS)
+        # Generate Baseline & Sample Sequences
         with torch.no_grad():
             baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
+        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+
+        # Convert Hypotheses to Sequences
         baseline_seqs = [h.seq for h in baseline_hyps]
-
-        # --- Generate Sampled Sequences
-        # sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
-        # sampled_seqs = [h.seq for h in sampled_hyps]
-
-        # --- Compute Rewards
+        sampled_seqs = [h.seq for h in sampled_hyps]
         gts = [vocab.indices2words(ind) for ind in batch.indices]
-        baseline_reward = self.compute_reward(baseline_seqs, gts)
-        # sampled_reward = self.compute_reward(sampled_seqs, gts)
-        # reward_diff = (sampled_reward - baseline_reward).detach()
-        reward_diff = 5
 
-        # --- Compute Self-Critical Loss
-        log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in baseline_hyps])
+        # Compute Rewards
+        baseline_reward = self.compute_reward(baseline_seqs, gts)
+        sampled_reward = self.compute_reward(sampled_seqs, gts)
+        reward_diff = (sampled_reward - baseline_reward).detach()
+
+        # Compute Log Probabilities Efficiently
+        log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
         scst_loss = -torch.mean(reward_diff * log_probs)
 
-        # --- Final Loss
+        # Compute Total Loss
         loss = ce_loss_val + struct_loss + scst_loss
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
-
-        # memory
-        # del out_hat, sim, baseline_hyps, sampled_hyps
-        # torch.cuda.empty_cache()
-        # torch.cuda.ipc_collect()
-
-        # gc.collect()
 
         return loss
     
