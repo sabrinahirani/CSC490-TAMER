@@ -257,7 +257,7 @@ class Decoder(DecodeModel):
 
         # Convert results into Hypothesis objects
         log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
-        hypotheses = [Hypothesis(seq.tolist(), log_prob.item()) for seq, log_prob in zip(seqs, log_probs)]
+        hypotheses = [Hypothesis(seq.tolist(), log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]
 
         return hypotheses
 
