@@ -65,19 +65,13 @@ class StructSim(nn.Module):
 
     def forward(self, out, src_key_padding_mask):
 
+        # Ensure the sequence length is divisible by 2
         if out.size(1) % 2 != 0:
-            # Ensure that the sequence length is even and non-zero
-            if out.size(1) == 1:
-                # If the sequence length is 1, just duplicate it to make it even
-                out = torch.cat([out, out], dim=1)
-                src_key_padding_mask = torch.cat([src_key_padding_mask, src_key_padding_mask], dim=1)
-            else:
-                # Otherwise, simply truncate the last token
-                out = out[:, :-1]
-                src_key_padding_mask = src_key_padding_mask[:, :-1]
+            out = out[:, :-1]  # Simply truncate the last token to make it even
+            src_key_padding_mask = src_key_padding_mask[:, :-1]
 
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
-        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=1)
+        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
         
         l2r_sim = self.l2r_struct_sim(l2r_out, l2r_kp_mask)
         r2l_sim = self.r2l_struct_sim(r2l_out, r2l_kp_mask)
