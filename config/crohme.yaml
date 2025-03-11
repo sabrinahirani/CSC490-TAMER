@@ -51,4 +51,3 @@ data:
   eval_batch_size: 4
   num_workers: 8
   scale_aug: false
-  pin_memory: true
