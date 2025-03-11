@@ -14,6 +14,9 @@ from tamer.model.transformer.transformer_decoder import (
 )
 from tamer.utils.generation_utils import DecodeModel
 
+from tamer.utils.utils import Hypothesis
+import torch.nn.functional as F
+
 
 class LBR(nn.Module):
     def __init__(self, d_model):
@@ -197,3 +200,63 @@ class Decoder(DecodeModel):
     ) -> FloatTensor:
         assert len(src) == 1 and len(src_mask) == 1
         return self(src[0], src_mask[0], input_ids)
+    
+    # added
+    def sample(
+        self,
+        features: List[FloatTensor],
+        masks: List[LongTensor],
+        max_len: int,
+        temperature: float,
+    ) -> List[Hypothesis]:
+        """Generate sequences using stochastic sampling.
+
+        Parameters
+        ----------
+        features : List[FloatTensor]
+            List of encoded features from the encoder.
+        masks : List[LongTensor]
+            List of masks corresponding to the features.
+        max_len : int
+            Maximum sequence length.
+        temperature : float
+            Temperature for softmax sampling.
+
+        Returns
+        -------
+        List[Hypothesis]
+            Sampled sequences with associated probabilities.
+        """
+        batch_size = features[0].size(0)
+        device = features[0].device
+
+        # Initialize sequences with start token
+        seqs = torch.full((batch_size, 1), vocab.start_token, dtype=torch.long, device=device)
+        log_probs = []
+
+        for _ in range(max_len):
+            # Decode the current sequence
+            logits = self.forward(features[0], masks[0], seqs)  # [b, L, vocab_size]
+            logits = logits[:, -1, :]  # Take the last time step
+
+            # Apply temperature
+            logits /= temperature
+
+            # Sample next token
+            probs = F.softmax(logits, dim=-1)
+            next_tokens = torch.multinomial(probs, num_samples=1)  # [b, 1]
+            log_prob = torch.log(probs.gather(-1, next_tokens)).squeeze(-1)  # [b]
+
+            # Append sampled token and log-prob
+            seqs = torch.cat([seqs, next_tokens], dim=1)
+            log_probs.append(log_prob)
+
+            # Stop sampling if all sequences generate an end token
+            if (next_tokens == vocab.end_token).all():
+                break
+
+        # Convert results into Hypothesis objects
+        log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
+        hypotheses = [Hypothesis(seq.tolist(), log_prob.item()) for seq, log_prob in zip(seqs, log_probs)]
+
+        return hypotheses
