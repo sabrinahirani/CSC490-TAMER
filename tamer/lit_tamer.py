@@ -13,8 +13,7 @@ from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
 
-import fastwer
-import gc
+# import gc
 
 class LitTAMER(pl.LightningModule):
     def __init__(
@@ -100,10 +99,7 @@ class LitTAMER(pl.LightningModule):
         return self.tamer_model.sample(imgs, masks, **self.hparams)
 
     def compute_reward(self, preds, targets):
-        edit_distances = torch.tensor([fastwer.score(p, t) for p, t in zip(preds, targets)], device=self.device)
-        rewards = 1 - (edit_distances / torch.max(torch.tensor([len(t) for t in targets], device=self.device), torch.tensor(1, device=self.device)))
-        return rewards
-
+        return torch.tensor([1 - (editdistance.eval(p, t) / max(len(t), 1)) for p, t in zip(preds, targets)], device=self.device)
 
     def training_step(self, batch: Batch, _):
         # One forward pass only
@@ -139,11 +135,11 @@ class LitTAMER(pl.LightningModule):
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
 
         # memory
-        del out_hat, sim, baseline_hyps, sampled_hyps
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
+        # del out_hat, sim, baseline_hyps, sampled_hyps
+        # torch.cuda.empty_cache()
+        # torch.cuda.ipc_collect()
 
-        gc.collect()
+        # gc.collect()
 
         return loss
     
