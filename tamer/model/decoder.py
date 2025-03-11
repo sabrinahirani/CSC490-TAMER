@@ -209,6 +209,24 @@ class Decoder(DecodeModel):
         max_len: int,
         temperature: float,
     ) -> List[Hypothesis]:
+        """Generate sequences using stochastic sampling.
+
+        Parameters
+        ----------
+        features : List[FloatTensor]
+            List of encoded features from the encoder.
+        masks : List[LongTensor]
+            List of masks corresponding to the features.
+        max_len : int
+            Maximum sequence length.
+        temperature : float
+            Temperature for softmax sampling.
+
+        Returns
+        -------
+        List[Hypothesis]
+            Sampled sequences with associated probabilities.
+        """
         batch_size = features[0].size(0)
         device = features[0].device
 
@@ -233,17 +251,17 @@ class Decoder(DecodeModel):
             seqs = torch.cat([seqs, next_tokens], dim=1)
             log_probs.append(log_prob)
 
-            # Stop sampling if all sequences generate an end token
-            if (next_tokens == vocab.EOS_IDX).all():
+            # Stop sampling if all sequences generate an end token or if we hit max_len
+            if (next_tokens == vocab.EOS_IDX).all() or seqs.size(1) >= max_len:
                 break
 
-        # Ensure the final shape of `out` is compatible for chunking
-        assert out.size(1) % 2 == 0, f"Expected even sequence length, but got {out.size(1)}"
+        # Ensure the sequence length is even before chunking
+        if seqs.size(1) % 2 != 0:
+            seqs = F.pad(seqs, (0, 1), value=vocab.PAD_IDX)  # Add padding along the sequence dimension
+
+        log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
 
         # Convert results into Hypothesis objects
-        log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
         hypotheses = [Hypothesis(seq, log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]
 
         return hypotheses
-
-
