@@ -64,6 +64,12 @@ class StructSim(nn.Module):
         self.r2l_struct_sim = StructSimOneDir(d_model)
 
     def forward(self, out, src_key_padding_mask):
+
+        # Ensure the sequence length is divisible by 2
+        if out.size(1) % 2 != 0:
+            out = out[:, :-1]  # Simply truncate the last token to make it even
+            src_key_padding_mask = src_key_padding_mask[:, :-1]
+
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
         
