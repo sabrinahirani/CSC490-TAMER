@@ -109,7 +109,7 @@ class LitTAMER(pl.LightningModule):
     def compute_reward(self, preds, targets):
         return levenshtein_batch(preds, targets)
 
-   def training_step(self, batch: Batch, batch_idx):
+    def training_step(self, batch: Batch, batch_idx):
         # Forward Pass
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
