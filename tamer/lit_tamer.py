@@ -134,7 +134,24 @@ class LitTAMER(pl.LightningModule):
         # --- Final Loss
         loss = ce_loss_val + struct_loss + scst_loss
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+
+        # memory
+        del out_hat, sim, baseline_hyps, sampled_hyps
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
         return loss
+    
+    # added
+    def on_train_epoch_end(self):
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    def on_train_start(self):
+        torch.set_float32_matmul_precision("medium")  # enables A100 Tensor Cores
+
+    def on_after_backward(self):
+        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
