@@ -6,6 +6,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
 
+from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
+
 torch.backends.cuda.max_split_size_mb = 64
 
 # # enable cudnn optimization
@@ -34,7 +36,8 @@ def main():
               #  ClearMemoryCallback()
             ],
             'auto_scale_batch_size': 'binsearch',  # dynamically reduce batch size
-            'gpus': 1
+            'gpus': 1,
+            'profiler': AdvancedProfiler(output_filename="profiler_output.txt")
         }
     )
 
