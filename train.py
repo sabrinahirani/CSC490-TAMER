@@ -6,8 +6,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
 
-from pytorch_lightning.profilers import AdvancedProfiler, SimpleProfiler
-
 torch.backends.cuda.max_split_size_mb = 64
 
 # # enable cudnn optimization
