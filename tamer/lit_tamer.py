@@ -125,17 +125,18 @@ class LitTAMER(pl.LightningModule):
         baseline_seqs = [h.seq for h in baseline_hyps]
 
         # --- Generate Sampled Sequences
-        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
-        sampled_seqs = [h.seq for h in sampled_hyps]
+        # sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+        # sampled_seqs = [h.seq for h in sampled_hyps]
 
         # --- Compute Rewards
         gts = [vocab.indices2words(ind) for ind in batch.indices]
         baseline_reward = self.compute_reward(baseline_seqs, gts)
-        sampled_reward = self.compute_reward(sampled_seqs, gts)
-        reward_diff = (sampled_reward - baseline_reward).detach()
+        # sampled_reward = self.compute_reward(sampled_seqs, gts)
+        # reward_diff = (sampled_reward - baseline_reward).detach()
+        reward_diff = 5
 
         # --- Compute Self-Critical Loss
-        log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in sampled_hyps])
+        log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in baseline_hyps])
         scst_loss = -torch.mean(reward_diff * log_probs)
 
         # --- Final Loss
