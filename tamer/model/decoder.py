@@ -65,12 +65,12 @@ class StructSim(nn.Module):
 
     def forward(self, out, src_key_padding_mask):
 
-        if out.shape[1] == 1:
+        if out.shape[0] == 1:
             # If out.shape[1] == 1, you can't chunk, so we handle it separately.
             # For example, we can duplicate the tensor along dim=1 or leave it as is:
             l2r_out = out  # Just use the out tensor directly if chunking isn't possible.
             r2l_out = out  # You can also just use out as is, or apply another strategy.
-        elif out.shape[1] % 2 == 0:
+        elif out.shape[0] % 2 == 0:
             # If out.shape[1] is even, perform chunking as usual.
             l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         else:
