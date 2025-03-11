@@ -109,7 +109,7 @@ class LitTAMER(pl.LightningModule):
     def compute_reward(self, preds, targets):
         return levenshtein_batch(preds, targets)
 
-    def training_step(self, batch: Batch, _):
+   def training_step(self, batch: Batch, batch_idx):
         # Forward Pass
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
@@ -119,31 +119,31 @@ class LitTAMER(pl.LightningModule):
         ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # Generate Baseline & Sample Sequences
-        # with torch.no_grad():
-        #     baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
-        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
-        baseline_hyps = sampled_hyps.copy()
+        # Apply SCST every X steps (e.g., every 5 steps)
+        if batch_idx % 50 == 0:  # Adjust interval as needed
+            with torch.no_grad():
+                baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
 
-        # Convert Hypotheses to Sequences
-        baseline_seqs = [h.seq for h in baseline_hyps]
-        sampled_seqs = [h.seq for h in sampled_hyps]
-        gts = [vocab.indices2words(ind) for ind in batch.indices]
+            sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+            baseline_seqs = [h.seq for h in baseline_hyps]
+            sampled_seqs = [h.seq for h in sampled_hyps]
+            gts = [vocab.indices2words(ind) for ind in batch.indices]
 
-        # Compute Rewards
-        baseline_reward = self.compute_reward(baseline_seqs, gts)
-        sampled_reward = self.compute_reward(sampled_seqs, gts)
-        reward_diff = (sampled_reward - baseline_reward).detach()
+            baseline_reward = self.compute_reward(baseline_seqs, gts)
+            sampled_reward = self.compute_reward(sampled_seqs, gts)
+            reward_diff = (sampled_reward - baseline_reward).detach()
 
-        # Compute Log Probabilities Efficiently
-        log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
-        scst_loss = -torch.mean(reward_diff * log_probs)
+            log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
+            scst_loss = -torch.mean(reward_diff * log_probs)
+        else:
+            scst_loss = 0  # Skip SCST for this step
 
         # Compute Total Loss
         loss = ce_loss_val + struct_loss + scst_loss
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
 
         return loss
+
     
     # added
     def on_train_epoch_end(self):
