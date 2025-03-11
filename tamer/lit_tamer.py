@@ -18,7 +18,8 @@ import numpy as np
 # import gc
 
 def levenshtein_batch(preds, targets):
-    """Efficient batch computation of normalized Levenshtein distance."""
+    preds = [" ".join(map(str, p)) for p in preds]
+    targets = [" ".join(map(str, t)) for t in targets]
     distances = np.array(Levenshtein.normalized_distance(preds, targets), dtype=np.float32)
     return torch.tensor(1 - distances, device="cuda" if torch.cuda.is_available() else "cpu")
 
