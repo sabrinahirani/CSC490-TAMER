@@ -21,8 +21,6 @@ torch.backends.cuda.max_split_size_mb = 64
 #     def on_epoch_end(self, trainer, pl_module):
 #         torch.cuda.empty_cache()
 
-from pytorch_lightning import Trainer
-
 def main():
     cli = LightningCLI(
         LitTAMER,
