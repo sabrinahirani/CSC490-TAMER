@@ -65,6 +65,8 @@ class StructSim(nn.Module):
 
     def forward(self, out, src_key_padding_mask):
 
+        print("Shape of out before chunking:", out.shape) # debugging
+
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
         
