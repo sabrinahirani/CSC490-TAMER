@@ -73,23 +73,23 @@ class LitTAMER(pl.LightningModule):
     # Original Implementation:
     # -----------------------
 
-    # def training_step(self, batch: Batch, _):
-    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
-    #     struct_out, _ = to_struct_output(batch.indices, self.device)
-    #     out_hat, sim = self(batch.imgs, batch.mask, tgt)
+    def training_step(self, batch: Batch, _):
+        tgt, out = to_bi_tgt_out(batch.indices, self.device)
+        struct_out, _ = to_struct_output(batch.indices, self.device)
+        out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-    #     loss = ce_loss(out_hat, out)
-    #     self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-    #     self.log(
-    #         "train/struct_loss",
-    #         struct_loss,
-    #         on_step=False,
-    #         on_epoch=True,
-    #         sync_dist=True,
-    #     )
+        loss = ce_loss(out_hat, out)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+        self.log(
+            "train/struct_loss",
+            struct_loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
-    #     return loss + struct_loss
+        return loss + struct_loss
 
 
 
@@ -109,47 +109,47 @@ class LitTAMER(pl.LightningModule):
     def compute_reward(self, preds, targets):
         return levenshtein_batch(preds, targets)
 
-    def training_step(self, batch: Batch, _):
-        # One forward pass only
-        tgt, out = to_bi_tgt_out(batch.indices, self.device)
-        struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim = self(batch.imgs, batch.mask, tgt)
+    # def training_step(self, batch: Batch, _):
+    #     # One forward pass only
+    #     tgt, out = to_bi_tgt_out(batch.indices, self.device)
+    #     struct_out, _ = to_struct_output(batch.indices, self.device)
+    #     out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # Compute cross-entropy and structural loss
-        ce_loss_val = ce_loss(out_hat, out)
-        struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+    #     # Compute cross-entropy and structural loss
+    #     ce_loss_val = ce_loss(out_hat, out)
+    #     struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # --- Generate Baseline (NO GRADIENTS)
-        with torch.no_grad():
-            baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
-        baseline_seqs = [h.seq for h in baseline_hyps]
+    #     # --- Generate Baseline (NO GRADIENTS)
+    #     with torch.no_grad():
+    #         baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
+    #     baseline_seqs = [h.seq for h in baseline_hyps]
 
-        # --- Generate Sampled Sequences
-        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
-        sampled_seqs = [h.seq for h in sampled_hyps]
+    #     # --- Generate Sampled Sequences
+    #     sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+    #     sampled_seqs = [h.seq for h in sampled_hyps]
 
-        # --- Compute Rewards
-        gts = [vocab.indices2words(ind) for ind in batch.indices]
-        baseline_reward = self.compute_reward(baseline_seqs, gts)
-        sampled_reward = self.compute_reward(sampled_seqs, gts)
-        reward_diff = (sampled_reward - baseline_reward).detach()
+    #     # --- Compute Rewards
+    #     gts = [vocab.indices2words(ind) for ind in batch.indices]
+    #     baseline_reward = self.compute_reward(baseline_seqs, gts)
+    #     sampled_reward = self.compute_reward(sampled_seqs, gts)
+    #     reward_diff = (sampled_reward - baseline_reward).detach()
 
-        # --- Compute Self-Critical Loss
-        log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in sampled_hyps])
-        scst_loss = -torch.mean(reward_diff * log_probs)
+    #     # --- Compute Self-Critical Loss
+    #     log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in sampled_hyps])
+    #     scst_loss = -torch.mean(reward_diff * log_probs)
 
-        # --- Final Loss
-        loss = ce_loss_val + struct_loss + scst_loss
-        self.log("train_loss", loss, on_epoch=True, sync_dist=True)
+    #     # --- Final Loss
+    #     loss = ce_loss_val + struct_loss + scst_loss
+    #     self.log("train_loss", loss, on_epoch=True, sync_dist=True)
 
-        # memory
-        # del out_hat, sim, baseline_hyps, sampled_hyps
-        # torch.cuda.empty_cache()
-        # torch.cuda.ipc_collect()
+    #     # memory
+    #     # del out_hat, sim, baseline_hyps, sampled_hyps
+    #     # torch.cuda.empty_cache()
+    #     # torch.cuda.ipc_collect()
 
-        # gc.collect()
+    #     # gc.collect()
 
-        return loss
+    #     return loss
     
     # added
     def on_train_epoch_end(self):
