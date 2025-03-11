@@ -107,8 +107,7 @@ class LitTAMER(pl.LightningModule):
         return self.tamer_model.sample(imgs, masks, **self.hparams)
 
     def compute_reward(self, preds, targets):
-        # return levenshtein_batch(preds, targets)
-        return 5
+        return levenshtein_batch(preds, targets)
 
     def training_step(self, batch: Batch, _):
         # Forward Pass
@@ -121,9 +120,10 @@ class LitTAMER(pl.LightningModule):
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
         # Generate Baseline & Sample Sequences
-        with torch.no_grad():
-            baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
+        # with torch.no_grad():
+        #     baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
         sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+        baseline_hyps = sampled_hyps.copy()
 
         # Convert Hypotheses to Sequences
         baseline_seqs = [h.seq for h in baseline_hyps]
@@ -133,8 +133,7 @@ class LitTAMER(pl.LightningModule):
         # Compute Rewards
         baseline_reward = self.compute_reward(baseline_seqs, gts)
         sampled_reward = self.compute_reward(sampled_seqs, gts)
-        # reward_diff = (sampled_reward - baseline_reward).detach()
-        reward_diff = 5
+        reward_diff = (sampled_reward - baseline_reward).detach()
 
         # Compute Log Probabilities Efficiently
         log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
@@ -154,8 +153,8 @@ class LitTAMER(pl.LightningModule):
     def on_train_start(self):
         torch.set_float32_matmul_precision("medium")  # enables A100 Tensor Cores
 
-    def on_after_backward(self):
-        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+    # def on_after_backward(self):
+    #     torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
