@@ -107,7 +107,7 @@ class LitTAMER(pl.LightningModule):
         return self.tamer_model.sample(imgs, masks, **self.hparams)
 
     def compute_reward(self, preds, targets):
-        return batch_levenshtein(preds, targets)
+        return levenshtein_batch(preds, targets)
 
     def training_step(self, batch: Batch, _):
         # One forward pass only
