@@ -15,7 +15,6 @@ from tamer.utils.utils import (
 
 from rapidfuzz.distance import Levenshtein
 import numpy as np
-# import gc
 
 def levenshtein_batch(preds, targets):
     preds = [" ".join(map(str, p)) for p in preds]
@@ -119,8 +118,8 @@ class LitTAMER(pl.LightningModule):
         ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # Apply SCST every X steps (e.g., every 5 steps)
-        if batch_idx % 50 == 0:  # Adjust interval as needed
+        # Apply SCST every X steps
+        if batch_idx % 20 == 0:
             with torch.no_grad():
                 baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
 
