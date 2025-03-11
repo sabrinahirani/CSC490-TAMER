@@ -13,7 +13,36 @@ from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
 
+import numpy as np
+import numba
 # import gc
+
+
+@numba.jit(nopython=True)
+def levenshtein_distance(s1, s2):
+    len_s1, len_s2 = len(s1), len(s2)
+    dp = np.zeros((len_s1 + 1, len_s2 + 1), dtype=np.int32)
+
+    for i in range(len_s1 + 1):
+        dp[i][0] = i
+    for j in range(len_s2 + 1):
+        dp[0][j] = j
+
+    for i in range(1, len_s1 + 1):
+        for j in range(1, len_s2 + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+
+    return dp[len_s1, len_s2]
+
+def batch_levenshtein(preds, targets):
+    batch_size = len(preds)
+    distances = np.zeros(batch_size, dtype=np.float32)
+
+    for i in range(batch_size):
+        distances[i] = levenshtein_distance(preds[i], targets[i]) / max(len(targets[i]), 1)
+
+    return torch.tensor(1 - distances, device="cuda" if torch.cuda.is_available() else "cpu")
 
 class LitTAMER(pl.LightningModule):
     def __init__(
@@ -99,7 +128,7 @@ class LitTAMER(pl.LightningModule):
         return self.tamer_model.sample(imgs, masks, **self.hparams)
 
     def compute_reward(self, preds, targets):
-        return torch.tensor([1 - (editdistance.eval(p, t) / max(len(t), 1)) for p, t in zip(preds, targets)], device=self.device)
+        return batch_levenshtein(preds, targets)
 
     def training_step(self, batch: Batch, _):
         # One forward pass only
