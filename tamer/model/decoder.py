@@ -234,30 +234,30 @@ class Decoder(DecodeModel):
 
         for _ in range(max_len):
             # Decode the current sequence (only get `out`, ignore `sim`)
-            out, _ = self.forward(features[0], masks[0], seqs)  # Unpack the tuple
-            logits = out[:, -1, :]  # Take the last time step
+            out, _ = self.forward(features[0], masks[0], seqs)
+            logits = out[:, -1, :]
 
             # Apply temperature
             logits /= temperature
 
             # Sample next token
             probs = F.softmax(logits, dim=-1)
-            next_tokens = torch.multinomial(probs, num_samples=1)  # [b, 1]
-            log_prob = torch.log(probs.gather(-1, next_tokens)).squeeze(-1)  # [b]
+            next_tokens = torch.multinomial(probs, num_samples=1)
+            log_prob = torch.log(probs.gather(-1, next_tokens)).squeeze(-1)
 
             # Append sampled token and log-prob
             seqs = torch.cat([seqs, next_tokens], dim=1)
             log_probs.append(log_prob)
 
-            # Stop sampling if all sequences generate an end token or if we hit max_len
-            if (next_tokens == vocab.EOS_IDX).all() or seqs.size(1) >= max_len:
+            # Stop sampling if all sequences generate an end token
+            if (next_tokens == vocab.EOS_IDX).all():
                 break
 
         # Ensure the sequence length is even before chunking
         if seqs.size(1) % 2 != 0:
-            seqs = F.pad(seqs, (0, 1), value=vocab.PAD_IDX)  # Add padding along the sequence dimension
+            seqs = F.pad(seqs, (0, 1), value=vocab.PAD_IDX)
 
-        log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
+        log_probs = torch.stack(log_probs, dim=1).sum(dim=1)
 
         # Convert results into Hypothesis objects
         hypotheses = [Hypothesis(seq, log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]
