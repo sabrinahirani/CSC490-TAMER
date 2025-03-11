@@ -69,8 +69,9 @@ class StructSim(nn.Module):
             out = F.pad(out[:, :-1], (0, 0, 0, 1))
             src_key_padding_mask = F.pad(src_key_padding_mask[:, :-1], (0, 1), value=True)
 
+
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
-        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=1)
+        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
         
         l2r_sim = self.l2r_struct_sim(l2r_out, l2r_kp_mask)
         r2l_sim = self.r2l_struct_sim(r2l_out, r2l_kp_mask)
