@@ -103,25 +103,35 @@ class LitTAMER(pl.LightningModule):
         return torch.tensor([1 - (editdistance.eval(p, t) / max(len(t), 1)) for p, t in zip(preds, targets)], device=self.device)
 
     def training_step(self, batch: Batch, _):
+        # One forward pass only
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
+
+        # Compute cross-entropy and structural loss
         ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # SCST
-        baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
-        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+        # --- Generate Baseline (NO GRADIENTS)
+        with torch.no_grad():
+            baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
         baseline_seqs = [h.seq for h in baseline_hyps]
-        sampled_seqs = [h.seq for h in sampled_hyps]
-        gts = [vocab.indices2words(ind) for ind in batch.indices]
 
+        # --- Generate Sampled Sequences
+        sampled_hyps = self.generate_sample(batch.imgs, batch.mask)
+        sampled_seqs = [h.seq for h in sampled_hyps]
+
+        # --- Compute Rewards
+        gts = [vocab.indices2words(ind) for ind in batch.indices]
         baseline_reward = self.compute_reward(baseline_seqs, gts)
         sampled_reward = self.compute_reward(sampled_seqs, gts)
         reward_diff = (sampled_reward - baseline_reward).detach()
+
+        # --- Compute Self-Critical Loss
         log_probs = torch.stack([torch.tensor(h.score, device=self.device) for h in sampled_hyps])
         scst_loss = -torch.mean(reward_diff * log_probs)
 
+        # --- Final Loss
         loss = ce_loss_val + struct_loss + scst_loss
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
         return loss
