@@ -67,15 +67,18 @@ class StructSim(nn.Module):
 
         # Ensure the sequence length is divisible by 2
         if out.size(1) % 2 != 0:
-            out = out[:, :-1]  # Truncate the last token if odd
+            out = out[:, :-1]
             src_key_padding_mask = src_key_padding_mask[:, :-1]
 
-        # Avoid chunking if the input size becomes zero
+        # If truncation causes an empty tensor, avoid calling Transformer
         if out.size(1) == 0:
-            return torch.zeros_like(out[:, :, 0])  # Return zeros with valid shape
+            # Return a tensor of zeros to prevent crashes
+            empty_sim = torch.zeros((out.size(0), 1, 1), device=out.device)
+            return empty_sim
 
+        # Split L2R and R2L
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
-        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=0)
+        l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=1)
         
         l2r_sim = self.l2r_struct_sim(l2r_out, l2r_kp_mask)
         r2l_sim = self.r2l_struct_sim(r2l_out, r2l_kp_mask)
