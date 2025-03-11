@@ -209,24 +209,6 @@ class Decoder(DecodeModel):
         max_len: int,
         temperature: float,
     ) -> List[Hypothesis]:
-        """Generate sequences using stochastic sampling.
-
-        Parameters
-        ----------
-        features : List[FloatTensor]
-            List of encoded features from the encoder.
-        masks : List[LongTensor]
-            List of masks corresponding to the features.
-        max_len : int
-            Maximum sequence length.
-        temperature : float
-            Temperature for softmax sampling.
-
-        Returns
-        -------
-        List[Hypothesis]
-            Sampled sequences with associated probabilities.
-        """
         batch_size = features[0].size(0)
         device = features[0].device
 
@@ -255,9 +237,13 @@ class Decoder(DecodeModel):
             if (next_tokens == vocab.EOS_IDX).all():
                 break
 
+        # Ensure the final shape of `out` is compatible for chunking
+        assert out.size(1) % 2 == 0, f"Expected even sequence length, but got {out.size(1)}"
+
         # Convert results into Hypothesis objects
         log_probs = torch.stack(log_probs, dim=1).sum(dim=1)  # Sum log probs across steps
         hypotheses = [Hypothesis(seq, log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]
 
         return hypotheses
+
 
