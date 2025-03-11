@@ -65,18 +65,10 @@ class StructSim(nn.Module):
 
     def forward(self, out, src_key_padding_mask):
 
-        # Ensure the sequence length is divisible by 2
         if out.size(1) % 2 != 0:
-            out = out[:, :-1]
-            src_key_padding_mask = src_key_padding_mask[:, :-1]
+            out = F.pad(out[:, :-1], (0, 0, 0, 1))
+            src_key_padding_mask = F.pad(src_key_padding_mask[:, :-1], (0, 1), value=True)
 
-        # If truncation causes an empty tensor, avoid calling Transformer
-        if out.size(1) == 0:
-            # Return a tensor of zeros to prevent crashes
-            empty_sim = torch.zeros((out.size(0), 1, 1), device=out.device)
-            return empty_sim
-
-        # Split L2R and R2L
         l2r_out, r2l_out = torch.chunk(out, 2, dim=1)
         l2r_kp_mask, r2l_kp_mask = torch.chunk(src_key_padding_mask, 2, dim=1)
         
