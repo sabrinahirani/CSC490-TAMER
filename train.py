@@ -24,7 +24,7 @@ torch.backends.cuda.max_split_size_mb = 64
 from pytorch_lightning import Trainer
 
 class PrintProfilerCallback(Callback):
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, another):
         if trainer.profiler is not None:
             print(trainer.profiler.summary())
 
