@@ -133,7 +133,8 @@ class LitTAMER(pl.LightningModule):
         # Compute Rewards
         baseline_reward = self.compute_reward(baseline_seqs, gts)
         sampled_reward = self.compute_reward(sampled_seqs, gts)
-        reward_diff = (sampled_reward - baseline_reward).detach()
+        # reward_diff = (sampled_reward - baseline_reward).detach()
+        reward_diff = 5
 
         # Compute Log Probabilities Efficiently
         log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
