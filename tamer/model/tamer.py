@@ -43,7 +43,7 @@ class TAMER(pl.LightningModule):
         )
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor, tgt_key_padding_mask=None
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor,
     ) -> FloatTensor:
         """run img and bi-tgt
 
@@ -65,10 +65,7 @@ class TAMER(pl.LightningModule):
         feature = torch.cat((feature, feature), dim=0)  # [2b, t, d]
         mask = torch.cat((mask, mask), dim=0)
 
-        if tgt_key_padding_mask is not None:
-            return self.decoder(feature, mask, tgt, tgt_key_padding_mask=tgt_key_padding_mask)
-        else:
-            return self.decoder(feature, mask, tgt)
+        return self.decoder(feature, mask, tgt)
 
     def beam_search(
         self,

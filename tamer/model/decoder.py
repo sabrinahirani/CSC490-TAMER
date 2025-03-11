@@ -146,7 +146,7 @@ class Decoder(DecodeModel):
         return mask
 
     def forward(
-        self, src: FloatTensor, src_mask: LongTensor, tgt: LongTensor, tgt_key_padding_mask=None
+        self, src: FloatTensor, src_mask: LongTensor, tgt: LongTensor,
     ) -> FloatTensor:
         """generate output for tgt
 
@@ -167,8 +167,6 @@ class Decoder(DecodeModel):
         _, l = tgt.size()
         tgt_mask = self._build_attention_mask(l)
         tgt_pad_mask = tgt == vocab.PAD_IDX
-        if tgt_key_padding_mask is not None:
-            tgt_pad_mask = tgt_key_padding_mask
 
         tgt = self.word_embed(tgt)  # [b, l, d]
         tgt = self.pos_enc(tgt)  # [b, l, d]
