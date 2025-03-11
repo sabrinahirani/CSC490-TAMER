@@ -215,55 +215,29 @@ class Decoder(DecodeModel):
         max_len: int,
         temperature: float,
     ) -> List[Hypothesis]:
-        """Generate sequences using stochastic sampling.
-
-        Parameters
-        ----------
-        features : List[FloatTensor]
-            List of encoded features from the encoder.
-        masks : List[LongTensor]
-            List of masks corresponding to the features.
-        max_len : int
-            Maximum sequence length.
-        temperature : float
-            Temperature for softmax sampling.
-
-        Returns
-        -------
-        List[Hypothesis]
-            Sampled sequences with associated probabilities.
-        """
         batch_size = features[0].size(0)
         device = features[0].device
 
-        # Initialize sequences with start token
         seqs = torch.full((batch_size, 1), vocab.SOS_IDX, dtype=torch.long, device=device)
         log_probs = []
 
         for _ in range(max_len):
-            # Decode the current sequence (only get `out`, ignore `sim`)
             out, _ = self.forward(features[0], masks[0], seqs)
-            logits = out[:, -1, :]
+            logits = out[:, -1, :] / temperature  # Apply temperature
 
-            # Apply temperature
-            logits /= temperature
-
-            # Sample next token
-            probs = F.softmax(logits, dim=-1)
-            next_tokens = torch.multinomial(probs, num_samples=1)
-            log_prob = torch.log(probs.gather(-1, next_tokens)).squeeze(-1)
+            # Use torch.distributions instead of softmax + multinomial
+            dist = torch.distributions.Categorical(logits.softmax(dim=-1))
+            next_tokens = dist.sample()
+            log_prob = dist.log_prob(next_tokens)
 
             # Append sampled token and log-prob
-            seqs = torch.cat([seqs, next_tokens], dim=1)
+            seqs = torch.cat([seqs, next_tokens.unsqueeze(1)], dim=1)
             log_probs.append(log_prob)
 
-            # Stop sampling if all sequences generate an end token
+            # Early stopping
             if (next_tokens == vocab.EOS_IDX).all():
                 break
 
         log_probs = torch.stack(log_probs, dim=1).sum(dim=1)
 
-        # Convert results into Hypothesis objects
-        hypotheses = [Hypothesis(seq, log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]
-
-        return hypotheses
+        return [Hypothesis(seq, log_prob.item(), "l2r") for seq, log_prob in zip(seqs, log_probs)]

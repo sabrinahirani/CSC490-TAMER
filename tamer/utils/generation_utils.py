@@ -165,6 +165,7 @@ class DecodeModel(pl.LightningModule):
             ret.append(hpy)
         return ret
 
+    # modified
     def _beam_search(
         self,
         src: List[FloatTensor],
@@ -175,75 +176,38 @@ class DecodeModel(pl.LightningModule):
         max_len: int,
         temperature: float,
     ) -> Tuple[List[LongTensor], FloatTensor]:
-        """inner beam search
-
-        Parameters
-        ----------
-        src : List[FloatTensor]
-            [b, t, d]
-        src_mask : List[LongTensor]
-            [b, t]
-        input_ids: LongTensor
-            [b, 1]
-        beam_size : int
-        max_len : int
-
-        Returns
-        _______
-        Tuple[List[LongTensor], FloatTensor]
-            List[LongTensor]: [b * beam_size] without SOS or EOS token
-            FloatTensor: [b * beam_size] corresponding scores
-        """
         batch_size, cur_len = input_ids.shape
+        beam_scores = torch.zeros(batch_size, dtype=torch.float, device=self.device)
 
-        beam_scores = torch.zeros(
-            batch_size, dtype=torch.float, device=self.device)
+        # Avoid repeated calls to self.transform()
+        cache = {}
 
         while cur_len < max_len and not beam_scorer.is_done():
-            next_token_logits = (
-                self.transform(src, src_mask, input_ids)[0][
-                    :, -1, :] / temperature
-            )
-            # [b *, l, v]
+            if cur_len not in cache:
+                cache[cur_len] = self.transform(src, src_mask, input_ids)[0] / temperature
+            
+            next_token_logits = cache[cur_len][:, -1, :]
             next_token_scores = F.log_softmax(next_token_logits, dim=-1)
+            next_token_scores += beam_scores[:, None].expand_as(next_token_scores)
 
-            next_token_scores = next_token_scores + beam_scores[:, None].expand_as(
-                next_token_scores
-            )
-            # [batch_size, beam_size * vocab_size]
+            # Flatten to [batch, beam_size * vocab_size]
             reshape_size = next_token_scores.shape[0] // batch_size
-            next_token_scores = rearrange(
-                next_token_scores,
-                "(b m) v -> b (m v)",
-                m=reshape_size,
-            )
+            next_token_scores = rearrange(next_token_scores, "(b m) v -> b (m v)", m=reshape_size)
 
-            # [b, 2 * beam_size]
-            next_token_scores, next_tokens = torch.topk(
-                next_token_scores, 2 * beam_size, dim=1
-            )
-
+            # Select top 2 * beam_size candidates
+            next_token_scores, next_tokens = torch.topk(next_token_scores, 2 * beam_size, dim=1)
             next_indices = next_tokens // len(vocab)
             next_tokens = next_tokens % len(vocab)
 
+            # Expand tensors only once
             if cur_len == 1:
-                input_ids = repeat(input_ids, "b l -> (b m) l", m=beam_size)
-                for i in range(len(src)):
-                    src[i] = repeat(src[i], "b ... -> (b m) ...", m=beam_size)
-                    src_mask[i] = repeat(
-                        src_mask[i], "b ... -> (b m) ...", m=beam_size)
+                input_ids = input_ids.expand(-1, beam_size).reshape(-1, 1)
 
             beam_scores, beam_next_tokens, beam_idx = beam_scorer.process(
-                input_ids=input_ids,
-                next_scores=next_token_scores,
-                next_tokens=next_tokens,
-                next_indices=next_indices,
+                input_ids, next_token_scores, next_tokens, next_indices
             )
 
-            input_ids = torch.cat(
-                (input_ids[beam_idx, :], beam_next_tokens.unsqueeze(-1)), dim=-1
-            )
-
+            input_ids = torch.cat([input_ids[beam_idx, :], beam_next_tokens.unsqueeze(-1)], dim=-1)
             cur_len += 1
 
         return beam_scorer.finalize(input_ids, beam_scores)
