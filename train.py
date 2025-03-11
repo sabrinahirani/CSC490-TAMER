@@ -6,10 +6,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from tamer.datamodule import HMEDatamodule
 from tamer.lit_tamer import LitTAMER
 
-# clear cache to avoid fragmentation
-torch.cuda.empty_cache()
-
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
+torch.backends.cuda.max_split_size_mb = 64
 
 # enable cudnn optimization
 torch.backends.cudnn.benchmark = True

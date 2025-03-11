@@ -13,8 +13,7 @@ from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
 
-import random
-
+import gc
 
 class LitTAMER(pl.LightningModule):
     def __init__(
@@ -139,6 +138,8 @@ class LitTAMER(pl.LightningModule):
         del out_hat, sim, baseline_hyps, sampled_hyps
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
+
+        gc.collect()
 
         return loss
     
