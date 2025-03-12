@@ -119,7 +119,7 @@ class LitTAMER(pl.LightningModule):
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
         # Apply SCST every X steps
-        if batch_idx % 200 == 0:
+        if batch_idx % 500 == 0:
             with torch.no_grad():
                 baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
 
