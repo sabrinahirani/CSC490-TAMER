@@ -1,12 +1,18 @@
 <div align="center">    
  
-# TAMER: Tree-Aware Transformer for Handwritten Mathematical Expression Recognition
+# CSC490: Multi-task learning with TAMER model
 [![arXiv](https://img.shields.io/badge/arXiv-2408.08578-b31b1b.svg)](https://arxiv.org/abs/2408.08578)
 
 </div>
 
-## News
-[2024/12/10] TAMER has been accepted to AAAI 2025! 🎉🎉🎉
+## Note
+This branch (named `multi-task-learning-position-identifier`) is based on
+the official github repo of TAMER. It contains all the relevant codes
+and files for the experimentation of multi-task learning (based on the 
+position forest coding algorithm introduced in PosFormer) and 
+depth-weighted structural loss. The base of this branch is the same as
+the official TAMER github repo and all the additional work and 
+modifications are done by Babur Nawyan.
 
 ## Project structure
 ```bash
