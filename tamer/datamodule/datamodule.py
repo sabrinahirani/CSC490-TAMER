@@ -200,18 +200,25 @@ class HMEDatamodule(pl.LightningDataModule):
                 self.scale_to_limit,
             )
         if stage == "test" or stage is None:
+            dataset = build_dataset(
+                self.folder,
+                self.test_folder,
+                self.eval_batch_size,
+                self.max_size,
+                False,
+            )
+
+            # Remove the 4th element (index 3)
+            if len(dataset) > 2:
+                dataset.pop(2)
+
             self.test_dataset = HMEDataset(
-                build_dataset(
-                    self.folder,
-                    self.test_folder,
-                    self.eval_batch_size,
-                    self.max_size,
-                    False,
-                ),
+                dataset,
                 False,
                 self.scale_aug,
                 self.scale_to_limit,
             )
+
 
     def train_dataloader(self):
         return DataLoader(
