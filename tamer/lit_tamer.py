@@ -109,17 +109,15 @@ class LitTAMER(pl.LightningModule):
         return levenshtein_batch(preds, targets)
 
     def training_step(self, batch: Batch, batch_idx):
-        # Forward Pass
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
-        # Compute Losses
         ce_loss_val = ce_loss(out_hat, out)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
 
-        # Apply SCST every X steps
-        if batch_idx % 250 == 0:
+        # apply SCST every X steps
+        if batch_idx % 500 == 0:  # TODO: update frequency here
             with torch.no_grad():
                 baseline_hyps = self.generate_baseline(batch.imgs, batch.mask)
 
@@ -135,25 +133,12 @@ class LitTAMER(pl.LightningModule):
             log_probs = torch.tensor([h.score for h in sampled_hyps], device=self.device)
             scst_loss = -torch.mean(reward_diff * log_probs)
         else:
-            scst_loss = 0  # Skip SCST for this step
+            scst_loss = 0
 
-        # Compute Total Loss
         loss = ce_loss_val + struct_loss + scst_loss
         self.log("train_loss", loss, on_epoch=True, sync_dist=True)
 
         return loss
-
-    
-    # added
-    def on_train_epoch_end(self):
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
-
-    def on_train_start(self):
-        torch.set_float32_matmul_precision("medium")  # enables A100 Tensor Cores
-
-    # def on_after_backward(self):
-    #     torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)

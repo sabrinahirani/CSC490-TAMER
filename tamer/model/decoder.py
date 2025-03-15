@@ -14,7 +14,9 @@ from tamer.model.transformer.transformer_decoder import (
 )
 from tamer.utils.generation_utils import DecodeModel
 
+# added
 from tamer.utils.utils import Hypothesis
+from torch.distributions import Categorical
 import torch.nn.functional as F
 
 
@@ -215,26 +217,24 @@ class Decoder(DecodeModel):
         max_len: int,
         temperature: float,
     ) -> List[Hypothesis]:
+        
         batch_size = features[0].size(0)
         device = features[0].device
 
         seqs = torch.full((batch_size, 1), vocab.SOS_IDX, dtype=torch.long, device=device)
+        
         log_probs = []
-
         for _ in range(max_len):
             out, _ = self.forward(features[0], masks[0], seqs)
-            logits = out[:, -1, :] / temperature  # Apply temperature
+            logits = out[:, -1, :] / temperature
 
-            # Use torch.distributions instead of softmax + multinomial
-            dist = torch.distributions.Categorical(logits.softmax(dim=-1))
+            dist = Categorical(logits.softmax(dim=-1))
             next_tokens = dist.sample()
             log_prob = dist.log_prob(next_tokens)
 
-            # Append sampled token and log-prob
             seqs = torch.cat([seqs, next_tokens.unsqueeze(1)], dim=1)
             log_probs.append(log_prob)
 
-            # Early stopping
             if (next_tokens == vocab.EOS_IDX).all():
                 break
 
