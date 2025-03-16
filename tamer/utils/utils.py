@@ -8,6 +8,8 @@ from torch import LongTensor
 from torchmetrics import Metric
 from tamer.datamodule.latex2gtd import to_struct
 
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
 class Hypothesis:
     seq: List[int]
     score: float
@@ -89,10 +91,49 @@ def ce_loss(
     return loss
 
 
+def lsm_score(gt: str, pred: str) -> float:
+    if len(gt) == 0 or len(pred) == 0:
+        return 0
+
+    dp = [[0] * (len(pred) + 1) for _ in range(len(gt) + 1)]
+    max_length = 0
+
+    for i in range(1, len(gt) + 1):
+        for j in range(1, len(pred) + 1):
+            if gt[i - 1] == pred[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+                max_length = max(max_length, dp[i][j])
+
+    print(max_length, len(pred))
+    return max_length / len(pred)
+
+def compute_weights(
+    gts: List[str],
+    preds: List[str]
+) -> List[float]:
+    """
+    Generate weights for each prediction.
+
+    Parameters
+    -----------
+    tgt_tokens: List[str]
+        size: [b]
+    pred_tokens: List[str]
+        size: [b]
+
+    Returns
+    --------
+    torch.Tensor
+    """
+    weights = []
+    for i in range(len(preds)):
+        weights.append(lsm_score(gts[i], preds[i]))
+    return weights
+
 def to_tgt_output(
     tokens: Union[List[List[int]], List[LongTensor]],
     direction: str,
-    device: torch.device,
+    device: device,
     pad_to_len: Optional[int] = None,
 ) -> Tuple[LongTensor, LongTensor]:
     """Generate tgt and out for indices
@@ -103,7 +144,7 @@ def to_tgt_output(
         indices: [b, l]
     direction : str
         one of "l2f" and "r2l"
-    device : torch.device
+    device : device
 
     Returns
     -------
@@ -155,7 +196,7 @@ def to_tgt_output(
 
 
 def to_bi_tgt_out(
-    tokens: List[List[int]], device: torch.device
+    tokens: List[List[int]], device: device
 ) -> Tuple[LongTensor, LongTensor]:
     """Generate bidirection tgt and out
 
@@ -163,7 +204,7 @@ def to_bi_tgt_out(
     ----------
     tokens : List[List[int]]
         indices: [b, l]
-    device : torch.device
+    device : device
 
     Returns
     -------
@@ -181,7 +222,7 @@ def to_bi_tgt_out(
 
 def to_struct_output(
     indices: Union[List[List[int]], List[LongTensor]],
-    device: torch.device,
+    device: device,
 ) -> LongTensor:
     if isinstance(indices[0], torch.Tensor):
         indices = [t.tolist() for t in indices]

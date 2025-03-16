@@ -10,7 +10,7 @@ from torch import FloatTensor, LongTensor
 from tamer.datamodule import Batch, vocab
 from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
-    ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
+    ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output, compute_weights)
 
 
 class LitTAMER(pl.LightningModule):
@@ -96,7 +96,9 @@ class LitTAMER(pl.LightningModule):
             sync_dist=True,
         )
 
-        return loss + struct_loss
+        hyps = self.approximate_joint_search(batch.imgs, batch.mask)
+        weights = compute_weights([vocab.indices2words(ind) for ind in batch.indices], [vocab.indices2words(h.seq) for h in hyps])
+        return weights * loss + struct_loss
 
 
     def validation_step(self, batch: Batch, _):
