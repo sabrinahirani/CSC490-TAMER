@@ -1,0 +1,1 @@
+\mathbf{J}_{R}={\left(\begin{array}{l l}{0}&{0}\\ {v_{n}}&{0}\end{array}\right)}\,,\ \mathbf{J}_{L}={\left(\begin{array}{l l}{u_{n-1}}&{0}\\ {0}&{0}\end{array}\right)}\,,\mathbf{K}={\left(\begin{array}{l l}{V_{n-1}}&{u_{n}}\\ {v_{n-1}}&{V_{n}}\end{array}\right)}\,,
