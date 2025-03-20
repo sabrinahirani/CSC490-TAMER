@@ -8,7 +8,8 @@ from torch import LongTensor
 from torchmetrics import Metric
 from tamer.datamodule.latex2gtd import to_struct
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+# device = torch.device()
 
 class Hypothesis:
     seq: List[int]
@@ -92,20 +93,38 @@ def ce_loss(
 
 
 def lsm_score(gt: str, pred: str) -> float:
-    if len(gt) == 0 or len(pred) == 0:
-        return 0
+    # if len(gt) == 0 or len(pred) == 0:
+    #     return 0
 
-    dp = [[0] * (len(pred) + 1) for _ in range(len(gt) + 1)]
-    max_length = 0
+    # dp = [[0] * (len(pred) + 1) for _ in range(len(gt) + 1)]
+    # max_length = 0
 
-    for i in range(1, len(gt) + 1):
-        for j in range(1, len(pred) + 1):
-            if gt[i - 1] == pred[j - 1]:
-                dp[i][j] = dp[i - 1][j - 1] + 1
-                max_length = max(max_length, dp[i][j])
+    # for i in range(1, len(gt) + 1):
+    #     for j in range(1, len(pred) + 1):
+    #         if gt[i - 1] == pred[j - 1]:
+    #             dp[i][j] = dp[i - 1][j - 1] + 1
+    #             max_length = max(max_length, dp[i][j])
 
-    print(max_length, len(pred))
-    return max_length / len(pred)
+    # print(max_length, len(pred))
+    # return max_length / len(pred)
+    len_score = 0
+
+    for i in range(len(pred)):
+        score = 0
+        curr_score = 0
+        count = 0
+        for j in range(len(gt)):
+            if i + count < len(pred) and gt[j] == pred[i + count]:
+                curr_score += 1
+                count += 1
+            else:
+                if curr_score > score:
+                    score = curr_score
+                count = 0
+                curr_score = 0
+        len_score = max(score, len_score)
+    print(len_score, len(pred))
+    return len_score/len(pred)
 
 def compute_weights(
     gts: List[str],
@@ -133,7 +152,7 @@ def compute_weights(
 def to_tgt_output(
     tokens: Union[List[List[int]], List[LongTensor]],
     direction: str,
-    device: device,
+    device: torch.device,
     pad_to_len: Optional[int] = None,
 ) -> Tuple[LongTensor, LongTensor]:
     """Generate tgt and out for indices
@@ -196,7 +215,7 @@ def to_tgt_output(
 
 
 def to_bi_tgt_out(
-    tokens: List[List[int]], device: device
+    tokens: List[List[int]], device: torch.device
 ) -> Tuple[LongTensor, LongTensor]:
     """Generate bidirection tgt and out
 
@@ -222,7 +241,7 @@ def to_bi_tgt_out(
 
 def to_struct_output(
     indices: Union[List[List[int]], List[LongTensor]],
-    device: device,
+    device: torch.device,
 ) -> LongTensor:
     if isinstance(indices[0], torch.Tensor):
         indices = [t.tolist() for t in indices]
