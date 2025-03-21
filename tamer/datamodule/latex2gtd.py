@@ -543,5 +543,5 @@ if __name__ == "__main__":
     for g in gtd:
         g = [str(item) for item in g]
         print("\t\t".join(g))
-    print(to_struct(latex.split()))
-    print(tree_complexity(r"\sum _ { 1 } \frac { x ^ { 2 } + 1 } { y }"))
+    print(f"to_struct: {to_struct(latex.split())}")
+    print("tree_complexity: " + str(tree_complexity(r"\sum _ { 1 } \frac { x ^ { 2 } + 1 } { y }")))

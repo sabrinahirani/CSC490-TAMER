@@ -24,7 +24,7 @@ class ScaleToLimitRange:
 
         scale_r = min(self.h_hi / h, self.w_hi / w)
         if scale_r < 1.0:
-            # one of h or w highr that hi, so scale down
+            # one of h or w higher that hi, so scale down
             img = cv2.resize(
                 img, None, fx=scale_r, fy=scale_r, interpolation=cv2.INTER_LINEAR
             )

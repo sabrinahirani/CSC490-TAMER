@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -6,8 +6,9 @@ from torch import FloatTensor, LongTensor
 
 from tamer.utils.utils import Hypothesis
 
-from .decoder import Decoder
+from .decoder import Decoder, PosDecoder
 from .encoder import Encoder
+from tamer.datamodule import vocab , label_make_muti
 
 
 class TAMER(pl.LightningModule):
@@ -41,10 +42,20 @@ class TAMER(pl.LightningModule):
             self_coverage=self_coverage,
             vocab_size=vocab_size,
         )
+        self.posdecoder = PosDecoder(
+            d_model=d_model,
+            nhead=nhead,
+            num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            dc=dc,
+            cross_coverage=cross_coverage,
+            self_coverage=self_coverage
+        )
 
     def forward(
         self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
-    ) -> FloatTensor:
+    ) -> Tuple[FloatTensor, FloatTensor, FloatTensor, FloatTensor]:
         """run img and bi-tgt
 
         Parameters
@@ -65,7 +76,15 @@ class TAMER(pl.LightningModule):
         feature = torch.cat((feature, feature), dim=0)  # [2b, t, d]
         mask = torch.cat((mask, mask), dim=0)
 
-        return self.decoder(feature, mask, tgt)
+        tgt_list = tgt.cpu().numpy().tolist()
+        muti_labels = label_make_muti.tgt2muti_label(tgt_list)
+        muti_labels_tensor = torch.FloatTensor(muti_labels)  # [2b,l,5]
+        muti_labels_tensor = muti_labels_tensor.cuda()
+
+        out, sim = self.decoder(feature, mask, tgt)
+        out_layernum, out_pos, _ = self.posdecoder(feature, mask, tgt, muti_labels_tensor)
+
+        return out, sim, out_layernum, out_pos  # [2b,l,vocab_size], ..., [2b,l,5] and [2b,l,6]
 
     def beam_search(
         self,

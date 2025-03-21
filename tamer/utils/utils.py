@@ -66,20 +66,19 @@ class ExpRateRecorder(Metric):
         return exp_rate
 
 
-
 def ce_loss(
     output_hat: torch.Tensor,
     output: torch.Tensor,
     ignore_idx: int = vocab.PAD_IDX,
     reduction: str = "mean",
 ) -> torch.Tensor:
-    """comput cross-entropy loss
+    """Compute cross-entropy loss
 
     Args:
         output_hat (torch.Tensor): [batch, len, e]
         output (torch.Tensor): [batch, len]
         ignore_idx (int):
-
+        reduction (srt):
     Returns:
         torch.Tensor: loss value
     """
@@ -87,6 +86,36 @@ def ce_loss(
     flat = rearrange(output, "b l -> (b l)")
     loss = F.cross_entropy(flat_hat, flat, ignore_index=ignore_idx, reduction=reduction)
     return loss
+
+
+def depth_weighted_ce_loss(
+        output_hat: torch.Tensor,
+        output: torch.Tensor,
+        layer_num: LongTensor,
+        ignore_idx: int = vocab.PAD_IDX
+) -> torch.Tensor:
+    """
+    Depth-weighted cross-entropy loss using layer_num
+    """
+    # Compute depth weights
+    weights = 1.0 + 0.5 * layer_num.float()  # [b,l]
+
+    # Flatten all tensors
+    flat_hat = rearrange(output_hat, "b l c -> (b l) c")
+    flat = rearrange(output, "b l -> (b l)")
+    flat_weights = rearrange(weights, "b l -> (b l)")
+
+    # Compute base loss without reduction
+    losses = F.cross_entropy(flat_hat, flat, ignore_index=ignore_idx, reduction='none')  # [b*l]
+
+    # Apply depth weights
+    weighted_losses = losses * flat_weights
+
+    # Mask padding
+    mask = flat != ignore_idx
+    valid_losses = weighted_losses[mask]
+
+    return valid_losses.mean()
 
 
 def to_tgt_output(

@@ -1,5 +1,5 @@
 import zipfile
-from typing import List
+from typing import List, Tuple
 import editdistance
 import json
 import pytorch_lightning as pl
@@ -7,10 +7,11 @@ import torch
 import torch.optim as optim
 from torch import FloatTensor, LongTensor
 
-from tamer.datamodule import Batch, vocab
+from tamer.datamodule import Batch, vocab, label_make_muti
 from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
-    ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output)
+    ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output,
+    depth_weighted_ce_loss)
 
 
 class LitTAMER(pl.LightningModule):
@@ -61,7 +62,7 @@ class LitTAMER(pl.LightningModule):
 
     def forward(
         self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
-    ) -> FloatTensor:
+    ) -> Tuple[FloatTensor, FloatTensor, FloatTensor, FloatTensor]:
         """run img and bi-tgt
 
         Parameters
@@ -83,36 +84,46 @@ class LitTAMER(pl.LightningModule):
     def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim = self(batch.imgs, batch.mask, tgt)
+        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
+        # For PosDecoder
+        tgt_list = tgt.cpu().numpy().tolist()
+        layer_num, final_pos = label_make_muti.out2layernum_and_pos(tgt_list)
+        layer_num_tensor = torch.LongTensor(layer_num)  # [2b,l,5]
+        final_pos_tensor = torch.LongTensor(final_pos)  # [2b,l,6]
+        layer_num_tensor = layer_num_tensor.cuda()
+        final_pos_tensor = final_pos_tensor.cuda()
+
+        # Original losses
         loss = ce_loss(out_hat, out)
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
+        self.log("train/struct_loss", struct_loss, on_step=False, on_epoch=True, sync_dist=True,)
+
+        # Position identifier loss
+        depth_weighted_pos_loss = depth_weighted_ce_loss(out_hat_pos, final_pos_tensor, layer_num_tensor)
         self.log(
-            "train/struct_loss",
-            struct_loss,
+            "train/depth_weighed_pos_loss",
+            depth_weighted_pos_loss,
             on_step=False,
             on_epoch=True,
-            sync_dist=True,
+            sync_dist=True
         )
 
-        return loss + struct_loss
+        # Combined loss (adjust weights as needed)
+        total_loss = (loss + 0.5 * struct_loss  + 0.5 * depth_weighted_pos_loss) / 2.0
+        self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
+
+        return total_loss
 
 
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim = self(batch.imgs, batch.mask, tgt)
+        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
         loss = ce_loss(out_hat, out)
-        self.log(
-            "val_loss",
-            loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
         self.log(
             "val/struct_loss",
@@ -121,6 +132,22 @@ class LitTAMER(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
+        )
+
+        # Generate position/layer targets
+        tgt_list = tgt.cpu().numpy().tolist()
+        layer_num, final_pos = label_make_muti.out2layernum_and_pos(tgt_list)
+        layer_num_tensor = torch.LongTensor(layer_num).to(self.device)
+        final_pos_tensor = torch.LongTensor(final_pos).to(self.device)
+
+        # Position identifier loss
+        depth_weighted_pos_loss = depth_weighted_ce_loss(out_hat_pos, final_pos_tensor, layer_num_tensor)
+        self.log(
+            "val/depth_weighed_pos_loss",
+            depth_weighted_pos_loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True
         )
 
         # if self.current_epoch < self.hparams.milestones[0]:
