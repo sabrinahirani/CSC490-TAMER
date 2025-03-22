@@ -54,7 +54,7 @@ class TAMER(pl.LightningModule):
         )
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor, tgt_vocab: LongTensor
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
     ) -> Tuple[FloatTensor, FloatTensor, FloatTensor, FloatTensor]:
         """run img and bi-tgt
 
