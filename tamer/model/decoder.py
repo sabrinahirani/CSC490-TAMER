@@ -174,7 +174,7 @@ class Decoder(DecodeModel):
         src_mask = rearrange(src_mask, "b h w -> b (h w)")
         tgt = rearrange(tgt, "b l d -> l b d")
 
-        out = self.model(
+        out, attn = self.model(
             tgt=tgt,
             memory=src,
             height=h,
