@@ -164,6 +164,7 @@ class Decoder(DecodeModel):
         tgt_mask = self._build_attention_mask(l)
         tgt_pad_mask = tgt == vocab.PAD_IDX
 
+        tgt_vocab = tgt
         tgt = self.word_embed(tgt)  # [b, l, d]
         tgt = self.pos_enc(tgt)  # [b, l, d]
         tgt = self.norm(tgt)
@@ -180,6 +181,7 @@ class Decoder(DecodeModel):
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_pad_mask,
             memory_key_padding_mask=src_mask,
+            tgt_vocab=tgt_vocab,
         )
 
         sim = self.struct_sim(out, tgt_pad_mask)
@@ -249,8 +251,7 @@ class PosDecoder(PosDecodeModel):
         return mask
 
     def forward(
-            self, src: FloatTensor, src_mask: LongTensor, tgt: LongTensor,
-            pos_tgt: FloatTensor
+            self, src: FloatTensor, src_mask: LongTensor, tgt: LongTensor, pos_tgt: FloatTensor
     ) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
         """generate output for tgt
 

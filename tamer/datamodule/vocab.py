@@ -18,8 +18,7 @@ class CROHMEVocab:
                 w = line.strip()
                 self.word2idx[w] = len(self.word2idx)
 
-        self.idx2word: Dict[int, str] = {
-            v: k for k, v in self.word2idx.items()}
+        self.idx2word: Dict[int, str] = {v: k for k, v in self.word2idx.items()}
 
     def words2indices(self, words: List[str]) -> List[int]:
         return [self.word2idx[w] for w in words]
