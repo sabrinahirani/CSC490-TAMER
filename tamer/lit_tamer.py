@@ -61,7 +61,7 @@ class LitTAMER(pl.LightningModule):
         self.exprate_recorder = ExpRateRecorder()
 
     def forward(
-        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor, logger
+        self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
     ) -> Tuple[FloatTensor, FloatTensor, FloatTensor, FloatTensor]:
         """run img and bi-tgt
 
@@ -79,12 +79,12 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        return self.tamer_model(img, img_mask, tgt, logger)
+        return self.tamer_model(img, img_mask, tgt)
 
     def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt, self.trainer.logger)
+        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
         # For PosDecoder
         tgt_list = tgt.cpu().numpy().tolist()
@@ -120,7 +120,7 @@ class LitTAMER(pl.LightningModule):
     def validation_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt, self.trainer.logger)
+        out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
         loss = ce_loss(out_hat, out)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
