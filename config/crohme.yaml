@@ -13,7 +13,6 @@ trainer:
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
   accelerator: gpu
   devices: 1
-  strategy: auto
   check_val_every_n_epoch: 2
   max_epochs: 400
   deterministic: true
