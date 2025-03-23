@@ -49,7 +49,7 @@ data:
   scale_to_limit: true
   train_batch_size: 2
   eval_batch_size: 1
-  num_workers: 16
+  num_workers: 5
   scale_aug: false
 #  pin_memory: true
 #  persistent_workers: true
