@@ -72,22 +72,26 @@ class TAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        print("TAMER.forward() called")
+        print("[TAMER.forward()] called")
         feature, mask = self.encoder(img, img_mask)  # [b, t, d]
-        print("self.encoder() called")
+        print("[TAMER.forward()] self.encoder() called")
         feature = torch.cat((feature, feature), dim=0)  # [2b, t, d]
         mask = torch.cat((mask, mask), dim=0)
+        print("[TAMER.forward()] feature, mask obtained")
 
         tgt_list = tgt.cpu().numpy().tolist()
+        print("[TAMER.forward()] tgt_list obtained")
         muti_labels = label_make_muti.tgt2muti_label(tgt_list)
+        print("[TAMER.forward()] muti_labels obtained")
         muti_labels_tensor = torch.FloatTensor(muti_labels)  # [2b,l,5]
         muti_labels_tensor = muti_labels_tensor.cuda()
+        print("[TAMER.forward()] muti_labels_tensor obtained")
 
         out, sim = self.decoder(feature, mask, tgt)
-        print("self.decoder() called")
+        print("[TAMER.forward()] self.decoder() called")
         out_layernum, out_pos, _ = self.posdecoder(feature, mask, tgt, muti_labels_tensor)
-        print("self.posdecoder() called")
-        print("TAMER.forward() about to return")
+        print("[TAMER.forward()] self.posdecoder() called")
+        print("[TAMER.forward()] about to return")
 
         return out, sim, out_layernum, out_pos  # [2b,l,vocab_size], ..., [2b,l,5] and [2b,l,6]
 
