@@ -79,26 +79,17 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        # print("LitTAMER.forward() called")
-        # print("Input shapes - img:", img.shape, "mask:", img_mask.shape, "tgt:", tgt.shape)
         results = self.tamer_model(img, img_mask, tgt)
-        # print("LitTAMER.forward() exit")
-
         return results
 
     def training_step(self, batch: Batch, _):
-        # print("training_step() called")
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
-        # print("to_bi_tgt_out() called")
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        # print("to_struct_output() called")
         print(struct_out)
         out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
-        # print("self() called")
 
         # For PosDecoder
         tgt_list = tgt.cpu().numpy().tolist()
-        # print("tgt_list obtained")
         layer_num, final_pos = label_make_muti.out2layernum_and_pos(tgt_list)
         layer_num_tensor = torch.LongTensor(layer_num)  # [2b,l,5]
         final_pos_tensor = torch.LongTensor(final_pos)  # [2b,l,6]
@@ -110,7 +101,6 @@ class LitTAMER(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
         self.log("train/struct_loss", struct_loss, on_step=False, on_epoch=True, sync_dist=True,)
-        # print("Original losses obtained")
 
         # Position identifier loss
         depth_weighted_pos_loss = depth_weighted_ce_loss(out_hat_pos, final_pos_tensor, layer_num_tensor)
@@ -121,9 +111,7 @@ class LitTAMER(pl.LightningModule):
             on_epoch=True,
             sync_dist=True
         )
-        # print("Position identifier loss obtained")
 
-        # Combined loss (adjust weights as needed)
         total_loss = (loss + 0.5 * struct_loss  + 0.5 * depth_weighted_pos_loss) / 2.0
         self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
 
