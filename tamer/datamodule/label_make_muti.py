@@ -120,7 +120,9 @@ def tgt2muti_label(tgt):
     muti_label_batch=[]
     max_length=0
     print("[label_make_muti.py] tgt2muti_label() entering outer loop")
+    print(f"[label_make_muti.py] tgt2muti_label() {len(tgt)} outer loops")
     for indices in tgt:
+        print("[label_make_muti.py] tgt2muti_label() outer loop top")
         label=indices2muti_label(indices)
         print("[label_make_muti.py] tgt2muti_label() label obtained")
         for i in range(len(label)):
