@@ -116,16 +116,24 @@ def indices2muti_label(indices):
         result.reverse()
     return result
 def tgt2muti_label(tgt):
+    print("[label_make_muti.py] tgt2muti_label() entered")
     muti_label_batch=[]
     max_length=0
+    print("[label_make_muti.py] tgt2muti_label() entering outer loop")
     for indices in tgt:
         label=indices2muti_label(indices)
+        print("[label_make_muti.py] tgt2muti_label() label obtained")
         for i in range(len(label)):
+            print("[label_make_muti.py] tgt2muti_label() inner loop")
             if len(label[i])<=5:
                 label[i].extend([0] * (5 - len(label[i])))
             else:
                 label[i]=label[i][:5]
+        print("[label_make_muti.py] tgt2muti_label() exited inner loop")
         muti_label_batch.append(label)
+        print("[label_make_muti.py] tgt2muti_label() outer loop iteration end")
+
+    print("[label_make_muti.py] tgt2muti_label() about to return")
     return muti_label_batch
 def tgt2layernum_and_pos(tgt):
     layer_num=[]
