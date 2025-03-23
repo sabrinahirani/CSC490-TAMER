@@ -85,7 +85,6 @@ class LitTAMER(pl.LightningModule):
     def training_step(self, batch: Batch, _):
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
-        print(struct_out)
         out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
         # For PosDecoder
