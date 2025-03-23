@@ -3,9 +3,9 @@ def find_end_midbracket(indices,start_i,end):   #寻找 ]
     count=1
     i=start_i+1
     while(count>0 and i<end):
-        if indices[i]==42:
+        if indices[i]==42:  # [ posformer: 40+2,  tamer: 40+2
             count+=1
-        elif indices[i]==81:
+        elif indices[i]==81:  # ] posformer: 79+2,  tamer: 79+2
             count-=1
         i+=1
     if count==0:
@@ -16,9 +16,9 @@ def find_end_bigbracket(indices,start_i,end):   #寻找 }
     count=1
     i=start_i+1
     while(count>0 and i<end):
-        if indices[i]==110:
+        if indices[i]==109:  # { posformer: 108+2,  tamer: 107+2
             count+=1
-        elif indices[i]==112:
+        elif indices[i]==110:  # } posformer: 110+2,  tamer: 108+2
             count-=1
         i+=1
     if count==0:
@@ -30,7 +30,8 @@ def helper(indices,start,end,result):   #start:{   end:}
     special=True   #是否对无实体符号编码
     i=start+1
     while(i < end):
-        if indices[i]==82:            # ^
+        # print(f"[label_make_muti.py] helper() i = {i}")
+        if indices[i]==111:            # ^ posformer: 80+2,  tamer: 109+2
             end1=find_end_bigbracket(indices,i+1,end)
             if special:
                 result[i].append(flag[3])
@@ -40,7 +41,7 @@ def helper(indices,start,end,result):   #start:{   end:}
                 result[j].append(flag[4]) #if indices[j] not in {42,81,82, 83, 110, 112} else None
             result=helper(indices,i+1,end1,result)
             i=end1+1
-        elif indices[i]==83:          # _
+        elif indices[i]==112:          # _ posformer: 81+2,  tamer: 110+2
             end1=find_end_bigbracket(indices,i+1,end)
             if special:
                 result[i].append(flag[3])
@@ -50,7 +51,7 @@ def helper(indices,start,end,result):   #start:{   end:}
                 result[j].append(flag[5]) #if indices[j] not in {42,81,82, 83, 110, 112} else None
             result=helper(indices,i+1,end1,result)
             i=end1+1
-        elif indices[i]==53:          # \frac
+        elif indices[i]==53:          # \frac posformer: 51+2,  tamer: 51+2
             result[i].append(flag[3])
             end1=find_end_bigbracket(indices,i+1,end)
             for j in range(i+2, end1):
@@ -66,7 +67,7 @@ def helper(indices,start,end,result):   #start:{   end:}
             result=helper(indices,i+1,end1,result)
             result=helper(indices,end1+1,end2,result)
             i=end2+1
-        elif indices[i]==74:          # \sqrt                  
+        elif indices[i]==74:          # \sqrt posformer: 72+2,  tamer: 72+2
             result[i].append(flag[3])
             if indices[i+1]==42:
                 end1=find_end_midbracket(indices,i+1,end)
@@ -106,27 +107,27 @@ def helper(indices,start,end,result):   #start:{   end:}
             i+=1            
     return result        
 def indices2muti_label(indices):
-    print("[label_make_muti.py] indices2muti_label() entered")
+    # print("[label_make_muti.py] indices2muti_label() entered")
     result = [[] for _ in range(len(indices))]
     is_reverse=False
     if indices[0]==2:
         indices.reverse()
-        is_reverse=True    
+        is_reverse=True
+    # print("[label_make_muti.py] indices2muti_label() calling helper()")
     result=helper(indices,-1,len(indices),result)
-    print("[label_make_muti.py] indices2muti_label() called helper()")
+    # print("[label_make_muti.py] indices2muti_label() called helper()")
     if is_reverse:
         result.reverse()
     return result
 def tgt2muti_label(tgt):
-    print("[label_make_muti.py] tgt2muti_label() entered")
+    # print("[label_make_muti.py] tgt2muti_label() entered")
     muti_label_batch=[]
     max_length=0
-    print("[label_make_muti.py] tgt2muti_label() entering outer loop")
-    print(f"[label_make_muti.py] tgt2muti_label() {len(tgt)} outer loops")
+    # print(f"[label_make_muti.py] tgt2muti_label() {len(tgt)} outer loops")
     for indices in tgt:
-        print("[label_make_muti.py] tgt2muti_label() outer loop top")
+        # print("[label_make_muti.py] tgt2muti_label() outer loop top")
         label=indices2muti_label(indices)
-        print("[label_make_muti.py] tgt2muti_label() label obtained")
+        # print("[label_make_muti.py] tgt2muti_label() label obtained")
         for i in range(len(label)):
             if len(label[i])<=5:
                 label[i].extend([0] * (5 - len(label[i])))
@@ -136,7 +137,7 @@ def tgt2muti_label(tgt):
         muti_label_batch.append(label)
         # print("[label_make_muti.py] tgt2muti_label() outer loop iteration end")
 
-    print("[label_make_muti.py] tgt2muti_label() about to return")
+    # print("[label_make_muti.py] tgt2muti_label() about to return")
     return muti_label_batch
 def tgt2layernum_and_pos(tgt):
     layer_num=[]

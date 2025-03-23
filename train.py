@@ -23,7 +23,7 @@ def main():
             'precision': 16,  # enable mixed precision
             'accumulate_grad_batches': 2,  # reduce memory spikes
             'auto_scale_batch_size': 'binsearch',  # dynamically reduce batch size
-            'gpus': 1,
+            # 'gpus': 1,
         }
     )
 
