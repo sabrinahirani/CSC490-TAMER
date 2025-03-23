@@ -11,8 +11,8 @@ trainer:
         monitor: val_ExpRate
         mode: max
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
-  gpus: 1
-  accelerator: auto
+  accelerator: gpu
+  devices: 1
   strategy: auto
   check_val_every_n_epoch: 2
   max_epochs: 400
