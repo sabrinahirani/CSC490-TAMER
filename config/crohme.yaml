@@ -49,5 +49,5 @@ data:
   scale_to_limit: true
   train_batch_size: 4
   eval_batch_size: 1
-  num_workers: 0
+  num_workers: 2
   scale_aug: false
