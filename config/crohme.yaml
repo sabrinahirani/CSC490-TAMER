@@ -12,7 +12,8 @@ trainer:
         mode: max
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
   gpus: 1
-  accelerator: ddp
+  accelerator: auto
+  strategy: auto
   check_val_every_n_epoch: 2
   max_epochs: 400
   deterministic: true
