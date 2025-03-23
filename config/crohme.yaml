@@ -51,7 +51,7 @@ data:
   scale_to_limit: true
   train_batch_size: 8
   eval_batch_size: 4
-  num_workers: 4
+  num_workers: 8
   scale_aug: false
 #  pin_memory: true
 #  persistent_workers: true
