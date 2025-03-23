@@ -72,7 +72,9 @@ class TAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
+        print("TAMER.forward() called")
         feature, mask = self.encoder(img, img_mask)  # [b, t, d]
+        print("self.encoder() called")
         feature = torch.cat((feature, feature), dim=0)  # [2b, t, d]
         mask = torch.cat((mask, mask), dim=0)
 
@@ -82,7 +84,10 @@ class TAMER(pl.LightningModule):
         muti_labels_tensor = muti_labels_tensor.cuda()
 
         out, sim = self.decoder(feature, mask, tgt)
+        print("self.decoder() called")
         out_layernum, out_pos, _ = self.posdecoder(feature, mask, tgt, muti_labels_tensor)
+        print("self.posdecoder() called")
+        print("TAMER.forward() about to return")
 
         return out, sim, out_layernum, out_pos  # [2b,l,vocab_size], ..., [2b,l,5] and [2b,l,6]
 

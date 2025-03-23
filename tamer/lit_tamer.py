@@ -79,7 +79,12 @@ class LitTAMER(pl.LightningModule):
         FloatTensor
             [2b, l, vocab_size]
         """
-        return self.tamer_model(img, img_mask, tgt)
+        print("LitTAMER.forward() called")
+        print("Input shapes - img:", img.shape, "mask:", img_mask.shape, "tgt:", tgt.shape)
+        results = self.tamer_model(img, img_mask, tgt)
+        print("LitTAMER.forward() exit")
+
+        return results
 
     def training_step(self, batch: Batch, _):
         print("training_step() called")
