@@ -51,5 +51,5 @@ data:
   eval_batch_size: 8
   num_workers: 16
   scale_aug: false
-  pin_memory: true
-  persistent_workers: true
+#  pin_memory: true
+#  persistent_workers: true
