@@ -12,9 +12,6 @@ trainer:
         mode: max
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
   gpus: 1
-#  accelerator: cpu
-#  devices: 1
-#  num_sanity_val_steps: 0
   check_val_every_n_epoch: 2
   max_epochs: 400
   deterministic: true
@@ -49,9 +46,7 @@ data:
   test_folder: 2014
   max_size: 320000
   scale_to_limit: true
-  train_batch_size: 8
+  train_batch_size: 16
   eval_batch_size: 4
   num_workers: 8
   scale_aug: false
-#  pin_memory: true
-#  persistent_workers: true
