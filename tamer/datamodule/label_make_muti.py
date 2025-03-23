@@ -106,12 +106,14 @@ def helper(indices,start,end,result):   #start:{   end:}
             i+=1            
     return result        
 def indices2muti_label(indices):
+    print("[label_make_muti.py] indices2muti_label() entered")
     result = [[] for _ in range(len(indices))]
     is_reverse=False
     if indices[0]==2:
         indices.reverse()
         is_reverse=True    
     result=helper(indices,-1,len(indices),result)
+    print("[label_make_muti.py] indices2muti_label() called helper()")
     if is_reverse:
         result.reverse()
     return result
@@ -126,14 +128,13 @@ def tgt2muti_label(tgt):
         label=indices2muti_label(indices)
         print("[label_make_muti.py] tgt2muti_label() label obtained")
         for i in range(len(label)):
-            print("[label_make_muti.py] tgt2muti_label() inner loop")
             if len(label[i])<=5:
                 label[i].extend([0] * (5 - len(label[i])))
             else:
                 label[i]=label[i][:5]
-        print("[label_make_muti.py] tgt2muti_label() exited inner loop")
+        # print("[label_make_muti.py] tgt2muti_label() exited inner loop")
         muti_label_batch.append(label)
-        print("[label_make_muti.py] tgt2muti_label() outer loop iteration end")
+        # print("[label_make_muti.py] tgt2muti_label() outer loop iteration end")
 
     print("[label_make_muti.py] tgt2muti_label() about to return")
     return muti_label_batch
