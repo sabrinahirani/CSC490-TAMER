@@ -87,6 +87,7 @@ class LitTAMER(pl.LightningModule):
         print("to_bi_tgt_out() called")
         struct_out, _ = to_struct_output(batch.indices, self.device)
         print("to_struct_output() called")
+        print(struct_out)
         out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
         print("self() called")
 
