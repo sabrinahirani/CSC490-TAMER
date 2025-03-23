@@ -82,6 +82,7 @@ class LitTAMER(pl.LightningModule):
         return self.tamer_model(img, img_mask, tgt)
 
     def training_step(self, batch: Batch, _):
+        print("training_step() called\n\n")
         tgt, out = to_bi_tgt_out(batch.indices, self.device)
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
@@ -96,7 +97,7 @@ class LitTAMER(pl.LightningModule):
 
         # Original losses
         loss = ce_loss(out_hat, out)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
         self.log("train/struct_loss", struct_loss, on_step=False, on_epoch=True, sync_dist=True,)
 
