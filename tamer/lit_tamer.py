@@ -97,14 +97,14 @@ class LitTAMER(pl.LightningModule):
 
         # Original losses
         loss = ce_loss(out_hat, out)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
+        self.log("train_seq_loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
-        self.log("train/struct_loss", struct_loss, on_step=False, on_epoch=True, sync_dist=True,)
+        self.log("train_struct_loss", struct_loss, on_step=False, on_epoch=True, sync_dist=True,)
 
         # Position identifier loss
         depth_weighted_pos_loss = depth_weighted_ce_loss(out_hat_pos, final_pos_tensor, layer_num_tensor)
         self.log(
-            "train/depth_weighed_pos_loss",
+            "train_pos_loss",
             depth_weighted_pos_loss,
             on_step=False,
             on_epoch=True,
@@ -112,7 +112,7 @@ class LitTAMER(pl.LightningModule):
         )
 
         total_loss = (loss + 0.5 * struct_loss  + 0.5 * depth_weighted_pos_loss) / 2.0
-        self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("train_total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return total_loss
 
@@ -123,10 +123,10 @@ class LitTAMER(pl.LightningModule):
         out_hat, sim, out_hat_layer, out_hat_pos = self(batch.imgs, batch.mask, tgt)
 
         loss = ce_loss(out_hat, out)
-        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("val_seq_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
         self.log(
-            "val/struct_loss",
+            "val_struct_loss",
             struct_loss,
             on_step=False,
             on_epoch=True,
@@ -143,22 +143,15 @@ class LitTAMER(pl.LightningModule):
         # Position identifier loss
         depth_weighted_pos_loss = depth_weighted_ce_loss(out_hat_pos, final_pos_tensor, layer_num_tensor)
         self.log(
-            "val/depth_weighed_pos_loss",
+            "val_pos_loss",
             depth_weighted_pos_loss,
             on_step=False,
             on_epoch=True,
             sync_dist=True
         )
 
-        # if self.current_epoch < self.hparams.milestones[0]:
-        #     self.log(
-        #         "val_ExpRate",
-        #         self.exprate_recorder,
-        #         prog_bar=True,
-        #         on_step=False,
-        #         on_epoch=True,
-        #     )
-        #     return
+        total_loss = (loss + 0.5 * struct_loss + 0.5 * depth_weighted_pos_loss) / 2.0
+        self.log("val_total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         hyps = self.approximate_joint_search(batch.imgs, batch.mask)
 
