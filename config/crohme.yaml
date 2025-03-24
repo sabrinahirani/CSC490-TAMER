@@ -5,15 +5,24 @@ trainer:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
       init_args:
         logging_interval: epoch
+    # Best Model (Based on val_ExpRate)
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
+        dirpath: "checkpoints/best"
         save_top_k: 1
         monitor: val_ExpRate
         mode: max
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
+    # Latest Model (Saved Every Epoch)
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: "checkpoints/latest"  # Folder for latest models
+        save_top_k: 1                  # Keep only the latest checkpoint
+        every_n_epochs: 10             # Save every 10 epoch
+        filename: "latest-{epoch}"
   gpus: 1
   check_val_every_n_epoch: 2
-  max_epochs: 400
+  max_epochs: 100
   deterministic: true
 model:
   d_model: 256
