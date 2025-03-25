@@ -10,7 +10,7 @@ from torch import FloatTensor, LongTensor
 from tamer.datamodule import Batch, vocab
 from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
-    ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output, compute_weights)
+    ExpRateRecorder, Hypothesis, LSM, ce_loss, to_bi_tgt_out, to_struct_output, compute_weights, compute_lsm)
 
 
 class LitTAMER(pl.LightningModule):
@@ -58,6 +58,7 @@ class LitTAMER(pl.LightningModule):
         )
 
         self.exprate_recorder = ExpRateRecorder()
+        self.lsm = LSM()
 
     def forward(
         self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
@@ -85,6 +86,9 @@ class LitTAMER(pl.LightningModule):
         struct_out, _ = to_struct_output(batch.indices, self.device)
         out_hat, sim = self(batch.imgs, batch.mask, tgt)
 
+        # print("out.shape:", out.shape)
+        # print("out_hat.shape", out_hat.shape)
+
         loss = ce_loss(out_hat, out)
         self.log("train_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
         struct_loss = ce_loss(sim, struct_out, ignore_idx=-1)
@@ -96,9 +100,40 @@ class LitTAMER(pl.LightningModule):
             sync_dist=True,
         )
 
-        hyps = self.approximate_joint_search(batch.imgs, batch.mask)
-        weights = compute_weights([vocab.indices2words(ind) for ind in batch.indices], [vocab.indices2words(h.seq) for h in hyps])
-        return weights * loss + struct_loss
+        # hyps = self.approximate_joint_search(batch.imgs, batch.mask)
+        
+        # pred_strings = [vocab.indices2words(h.seq) for h in hyps]
+        # print("out length:", out.shape)
+        # gt_strings = [vocab.indices2words(ind) for ind in batch.indices]
+        # # print("Got gt strings")
+        # print(gt_indices.tolist())
+        # print()
+        # pred_indices = out_hat.argmax(dim=-1)
+        # print(batch.indices)
+        # print(len(batch.indices))
+        # print(pred_indices.tolist())
+        # pred_strings = [vocab.indices2words(seq.tolist()) for seq in pred_indices]
+        # # print("Got pred strings")
+        # for i in range(len(gt_strings)):
+        #     print(gt_strings[i])
+        #     print(pred_strings[i])
+        #     print()
+        # exit()
+        # weights = compute_weights(gt_strings, pred_strings)
+        # weights = compute_weights([vocab.indices2words(ind) for ind in batch.indices], [vocab.indices2words(h.seq) for h in hyps])
+        #return weights * loss + struct_loss
+
+        # gradient based adaptive loss:
+        loss_grad = torch.autograd.grad(loss, self.parameters(), retain_graph=True, allow_unused=True)
+        struct_loss_grad = torch.autograd.grad(struct_loss, self.parameters(), retain_graph=True, allow_unused=True)
+
+        norm_loss_grad = torch.norm(torch.cat([g.view(-1) for g in loss_grad if g is not None]))
+        norm_struct_loss_grad = torch.norm(torch.cat([g.view(-1) for g in struct_loss_grad if g is not None]))
+
+        w_loss = norm_loss_grad/ (norm_loss_grad + norm_struct_loss_grad)
+        w_struct_loss = norm_struct_loss_grad / (norm_loss_grad + norm_struct_loss_grad)
+        
+        return w_loss * loss + w_struct_loss * struct_loss
 
 
     def validation_step(self, batch: Batch, _):
@@ -136,6 +171,19 @@ class LitTAMER(pl.LightningModule):
         #     return
 
         hyps = self.approximate_joint_search(batch.imgs, batch.mask)
+
+        # preds = [vocab.indices2words(h.seq) for h in hyps]
+        # gts = [vocab.indices2words(ind) for ind in batch.indices]
+        # pred_strings = [' '.join(pred) for pred in preds]
+        # gt_strings = [' '.join(gt) for gt in gts]
+        self.lsm([h.seq for h in hyps], batch.indices)
+        self.log(
+            "val_lsm",
+            self.lsm,
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
 
         self.exprate_recorder([h.seq for h in hyps], batch.indices)
         self.log(
