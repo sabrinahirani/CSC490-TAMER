@@ -27,10 +27,10 @@ trainer:
         filename: "latest-{epoch}"
   gpus: 1
   check_val_every_n_epoch: 2
-  max_epochs: 270
+  max_epochs: 400
   deterministic: true
 model:
-  d_model: 400
+  d_model: 256
   # encoder
   growth_rate: 24
   num_layers: 16
