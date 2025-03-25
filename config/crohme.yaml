@@ -30,7 +30,7 @@ trainer:
   max_epochs: 270
   deterministic: true
 model:
-  d_model: 256
+  d_model: 400
   # encoder
   growth_rate: 24
   num_layers: 16
