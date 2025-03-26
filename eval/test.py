@@ -13,12 +13,9 @@ years = {'2014': 986, '2016': 1147, '2019': 1199, 'test': 24607}
 def main(
     folder: str, version: str, test_year: str, max_size: int, scale_to_limit: bool
 ):
-    ckp_folder = os.path.join(
-        "lightning_logs", f"version_{version}", "checkpoints")
-    fnames = os.listdir(ckp_folder)
-    assert len(fnames) == 1
-    ckp_path = os.path.join(ckp_folder, fnames[0])
-    print(f"Test with fname: {fnames[0]}")
+    ckp_path = os.path.join("checkpoints", version)
+    print(f"Test with version: {version}")
+    ckp_folder = os.path.dirname(ckp_path)  # Get parent directory of checkpoint
 
     trainer = Trainer(logger=False, gpus=1)
 
