@@ -7,10 +7,12 @@ trainer:
         logging_interval: epoch
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
+        dirpath: checkpoints/crohme
+        filename: '{epoch}-{step}-{val_ExpRate:.4f}'
         save_top_k: 1
         monitor: val_ExpRate
+        every_n_epochs: 40
         mode: max
-        filename: '{epoch}-{step}-{val_ExpRate:.4f}'
   gpus: 1
   accelerator: ddp
   check_val_every_n_epoch: 2
