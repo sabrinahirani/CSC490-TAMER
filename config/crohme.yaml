@@ -11,7 +11,7 @@ trainer:
         filename: '{epoch}-{step}-{val_ExpRate:.4f}'
         save_top_k: 1
         monitor: val_ExpRate
-        every_n_epochs: 40
+        every_n_epochs: 2
         mode: max
   gpus: 1
   accelerator: ddp
