@@ -14,8 +14,11 @@ def main(
     folder: str, version: str, test_year: str, max_size: int, scale_to_limit: bool
 ):
     ckp_path = version
-    print(f"Test with version: {version}")
-    ckp_folder = os.path.dirname(ckp_path)  # Get parent directory of checkpoint
+    dirs = version.split('/')
+    model_type = dirs[1]  # 'best' or 'latest'
+    model_name = dirs[2][:-5]
+    print(f"Test with version: {model_type}/{dirs[2]}")
+    os.makedirs(os.path.join("results", model_type), exist_ok=True)
 
     trainer = Trainer(logger=False, gpus=1)
 
@@ -30,22 +33,22 @@ def main(
 
     metrics = trainer.test(model, datamodule=dm)[0]
 
-    with open(os.path.join(ckp_folder, os.pardir, f"{test_year}.txt"), "w") as f:
+    with open(os.path.join("results", f"{model_type}/{model_name}_{test_year}.txt"), "w") as f:
         for tol, acc in metrics.items():
             f.write(f"Exprate {tol} tolerated: {acc:.3f}\n")
 
     os.rename(
         "errors.json",
-        os.path.join(ckp_folder, os.pardir, f"errors_{test_year}.json"),
+        os.path.join("results", f"{model_type}/{model_name}_errors_{test_year}.json"),
     )
     os.rename(
         "predictions.json",
-        os.path.join(ckp_folder, os.pardir, f"pred_{test_year}.json"),
+        os.path.join("results", f"{model_type}/{model_name}_pred_{test_year}.json"),
     )
 
     # Calculate ExpRate
     test_num = years[test_year]
-    with open(os.path.join(ckp_folder, os.pardir, f"errors_{test_year}.json"), 'r') as jf:
+    with open(os.path.join("results", f"{model_type}/{model_name}_errors_{test_year}.json"), 'r') as jf:
         data = json.load(jf)
         exprate = test_num-len(data)
         exprate_1 = 0
@@ -58,7 +61,7 @@ def main(
         exprate_1 = (exprate_1 + exprate)/test_num
         exprate_2 = (exprate_2 + exprate)/test_num
         exprate = exprate/test_num
-        with open(os.path.join(ckp_folder, os.pardir, f'{test_year}.txt'), 'w') as wf:
+        with open(os.path.join("results", f"{model_type}/{model_name}_{test_year}.txt"), 'w') as wf:
             wf.write(f'ExpRate:  {exprate}\n')
             wf.write(f'ExpRate<=1:  {exprate_1}\n')
             wf.write(f'ExpRate<=2:  {exprate_2}\n')
