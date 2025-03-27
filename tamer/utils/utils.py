@@ -98,7 +98,7 @@ def depth_weighted_ce_loss(
     Depth-weighted cross-entropy loss using layer_num
     """
     # Compute depth weights
-    weights = 1.0 + 0.5 * layer_num.float()  # [b,l]
+    weights = 1.0 + layer_num.float()  # [b,l]
 
     # Flatten all tensors
     flat_hat = rearrange(output_hat, "b l c -> (b l) c")

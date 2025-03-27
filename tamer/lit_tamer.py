@@ -150,7 +150,7 @@ class LitTAMER(pl.LightningModule):
             sync_dist=True
         )
 
-        total_loss = (loss + 0.5 * struct_loss + 0.5 * depth_weighted_pos_loss) / 2.0
+        total_loss = (loss + 0.5 * struct_loss + depth_weighted_pos_loss) / 2.5
         self.log("val_total_loss", total_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         hyps = self.approximate_joint_search(batch.imgs, batch.mask)
