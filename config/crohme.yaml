@@ -14,7 +14,7 @@ trainer:
   gpus: 0
   accelerator: gpu
   check_val_every_n_epoch: 2
-  max_epochs: 200
+  max_epochs: 400
   deterministic: true
 model:
   d_model: 256
@@ -47,7 +47,7 @@ data:
   test_folder: "2014"
   max_size: 320000
   scale_to_limit: true
-  train_batch_size: 16
+  train_batch_size: 8
   eval_batch_size: 4
   num_workers: 12
   scale_aug: false
