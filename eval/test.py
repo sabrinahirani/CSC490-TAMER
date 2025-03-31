@@ -13,8 +13,9 @@ years = {'2014': 986, '2016': 1147, '2019': 1199, 'test': 24607}
 def main(
     folder: str, version: str, test_year: str, max_size: int, scale_to_limit: bool
 ):
-    ckp_folder = os.path.join(
-        "lightning_logs", f"version_{version}", "checkpoints")
+    # ckp_folder = os.path.join(
+    #     "lightning_logs", f"version_{version}", "checkpoints")
+    ckp_folder = "/student/chand458/CSC490/old_lightning_logs/version_0/checkpoints"
     fnames = os.listdir(ckp_folder)
     assert len(fnames) == 1
     ckp_path = os.path.join(ckp_folder, fnames[0])
@@ -32,6 +33,7 @@ def main(
     model = LitTAMER.load_from_checkpoint(ckp_path)
 
     metrics = trainer.test(model, datamodule=dm)[0]
+    
 
     with open(os.path.join(ckp_folder, os.pardir, f"{test_year}.txt"), "w") as f:
         for tol, acc in metrics.items():
@@ -44,6 +46,10 @@ def main(
     os.rename(
         "predictions.json",
         os.path.join(ckp_folder, os.pardir, f"pred_{test_year}.json"),
+    )
+    os.rename(
+        "predictions_lsm.json",
+        os.path.join(ckp_folder, os.pardir, f"pred_lsm_{test_year}.json"),
     )
 
     # Calculate ExpRate
@@ -65,7 +71,17 @@ def main(
             wf.write(f'ExpRate:  {exprate}\n')
             wf.write(f'ExpRate<=1:  {exprate_1}\n')
             wf.write(f'ExpRate<=2:  {exprate_2}\n')
-
+    
+    # Calculate LSM
+    with open(os.path.join(ckp_folder, os.pardir, f"pred_lsm_{test_year}.json"), 'r') as jf:
+        data = json.load(jf)
+        lsm = 0
+        for _, ele in data.items():
+            lsm += ele['lsm']
+        lsm /= len(data)
+        with open(os.path.join(ckp_folder, os.pardir, f'lsm_{test_year}.txt'), 'w') as wf:
+            wf.write(f'LSM:  {lsm}\n')
+    
 
 if __name__ == "__main__":
     typer.run(main)
