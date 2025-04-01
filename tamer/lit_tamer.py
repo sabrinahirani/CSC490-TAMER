@@ -166,7 +166,14 @@ class LitTAMER(pl.LightningModule):
         )
 
         # From lit_tamer.py in `weighted_loss` branch
-
+        self.lsm([h.seq for h in hyps], batch.indices)
+        self.log(
+            "val_lsm",
+            self.lsm,
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
 
     def test_step(self, batch: Batch, _):
         hyps = self.approximate_joint_search(batch.imgs, batch.mask)
