@@ -59,6 +59,7 @@ class LitTAMER(pl.LightningModule):
         )
 
         self.exprate_recorder = ExpRateRecorder()
+        self.lsm = LSM()
 
     def forward(
         self, img: FloatTensor, img_mask: LongTensor, tgt: LongTensor
