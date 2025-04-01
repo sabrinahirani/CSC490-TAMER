@@ -11,7 +11,7 @@ from tamer.datamodule import Batch, vocab, label_make_muti
 from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output,
-    depth_weighted_ce_loss, lsm_score)
+    depth_weighted_ce_loss, LSM, compute_lsm, lsm_score)
 
 
 class LitTAMER(pl.LightningModule):
