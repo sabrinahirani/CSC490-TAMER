@@ -88,6 +88,91 @@ def ce_loss(
     loss = F.cross_entropy(flat_hat, flat, ignore_index=ignore_idx, reduction=reduction)
     return loss
 
+def lsm_score(gt: str, pred: str) -> float:
+    if len(gt) == 0 or len(pred) == 0:
+        return 0
+
+    dp = [[0] * (len(pred) + 1) for _ in range(len(gt) + 1)]
+    max_length = 0
+
+    for i in range(1, len(gt) + 1):
+        for j in range(1, len(pred) + 1):
+            if gt[i - 1] == pred[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+                max_length = max(max_length, dp[i][j])
+
+    # print(max_length, len(pred))
+    return max_length / len(pred)
+
+def compute_weights(
+    gts: List[str],
+    preds: List[str]
+) -> List[float]:
+    """
+    Generate weights for each prediction.
+
+    Parameters
+    -----------
+    tgt_tokens: List[str]
+        size: [b]
+    pred_tokens: List[str]
+        size: [b]
+
+    Returns
+    --------
+    torch.Tensor
+    """
+    weights = []
+    epsilon = 10 ** -4
+    for i in range(len(preds)):
+        weights.append(1 - lsm_score(gts[i], preds[i]) + epsilon)
+    return weights
+
+def compute_lsm(
+    gts: List[str],
+    preds: List[str]
+) -> List[float]:
+    """
+    Generate weights for each prediction.
+
+    Parameters
+    -----------
+    tgt_tokens: List[str]
+        size: [b]
+    pred_tokens: List[str]
+        size: [b]
+
+    Returns
+    --------
+    torch.Tensor
+    """
+    lsm = []
+    for i in range(len(preds)):
+        lsm.append(lsm_score(gts[i], preds[i]))
+    return lsm
+
+class LSM(Metric):
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.add_state("total_line", default=torch.tensor(
+            0.0), dist_reduce_fx="sum"
+        )
+        self.add_state("lsm", default=torch.tensor(0.0), dist_reduce_fx="sum")
+    
+    def update(self, indices_hat: List[List[int]], indices: List[List[int]]):
+        for pred, truth in zip(indices_hat, indices):
+            pred = vocab.indices2label(pred)
+            truth = vocab.indices2label(truth)
+
+            self.lsm += lsm_score(truth, pred)
+            self.total_line += 1
+    
+    def compute(self) -> float:
+        if self.total_line < 1:
+            self.total_line = 1
+        lsm = self.lsm / self.total_line
+        return lsm
 
 def to_tgt_output(
     tokens: Union[List[List[int]], List[LongTensor]],

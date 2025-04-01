@@ -46,6 +46,10 @@ def main(
         "predictions.json",
         os.path.join(ckp_folder, os.pardir, f"pred_{test_year}.json"),
     )
+    os.rename(
+        "predictions_lsm.json",
+        os.path.join(ckp_folder, os.pardir, f"pred_lsm_{test_year}.json"),
+    )
 
     # Calculate ExpRate
     test_num = years[test_year]
@@ -67,6 +71,14 @@ def main(
             wf.write(f'ExpRate<=1:  {exprate_1}\n')
             wf.write(f'ExpRate<=2:  {exprate_2}\n')
 
+    with open(os.path.join(ckp_folder, os.pardir, f"pred_lsm_{test_year}.json"), 'r') as jf:
+        data = json.load(jf)
+        lsm = 0
+        for _, ele in data.items():
+            lsm += ele['lsm']
+        lsm /= len(data)
+        with open(os.path.join(ckp_folder, os.pardir, f'lsm_{test_year}.txt'), 'w') as wf:
+            wf.write(f'LSM:  {lsm}\n')
 
 if __name__ == "__main__":
     typer.run(main)
