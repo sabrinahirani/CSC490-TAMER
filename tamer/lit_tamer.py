@@ -11,7 +11,7 @@ from tamer.datamodule import Batch, vocab, label_make_muti
 from tamer.model.tamer import TAMER
 from tamer.utils.utils import (
     ExpRateRecorder, Hypothesis, ce_loss, to_bi_tgt_out, to_struct_output,
-    depth_weighted_ce_loss)
+    depth_weighted_ce_loss, lsm_score)
 
 
 class LitTAMER(pl.LightningModule):
@@ -164,11 +164,15 @@ class LitTAMER(pl.LightningModule):
             on_epoch=True,
         )
 
+        # From lit_tamer.py in `weighted_loss` branch
+
+
     def test_step(self, batch: Batch, _):
         hyps = self.approximate_joint_search(batch.imgs, batch.mask)
         self.exprate_recorder([h.seq for h in hyps], batch.indices)
         gts = [vocab.indices2words(ind) for ind in batch.indices]
         preds = [vocab.indices2words(h.seq) for h in hyps]
+        self.lsm([h.seq for h in hyps], batch.indices)  # From `weighted_loss` branch
 
         return batch.img_bases, preds, gts
 
@@ -200,6 +204,26 @@ class LitTAMER(pl.LightningModule):
             json.dump(errors_dict, f)
         with open("predictions.json", "w") as f:
             json.dump(predictions_dict, f)
+
+        # Save the LSM results
+        lsm = self.lsm.compute()
+        print(f"Validation LSM: {lsm}")
+        predictions_lsm_dict = {}
+        with zipfile.ZipFile("result_lsm.zip", "w") as zip_f:
+            for img_bases, preds, gts in test_outputs:
+                for img_base, pred, gt in zip(img_bases, preds, gts):
+                    content = f"%{img_base}\n${pred}$".encode()
+                    with zip_f.open(f"{img_base}.txt", "w") as f:
+                        f.write(content)
+                    lsm = lsm_score(pred, gt)
+
+                    predictions_lsm_dict[img_base] = {
+                        "pred": " ".join(pred),
+                        "gt": " ".join(gt),
+                        "lsm": lsm,
+                    }
+        with open("predictions_lsm.json", "w") as f:
+            json.dump(predictions_lsm_dict, f)
 
     def approximate_joint_search(
         self, img: FloatTensor, mask: LongTensor

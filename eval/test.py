@@ -46,6 +46,11 @@ def main(
         os.path.join("results", f"{model_type}/{model_name}_pred_{test_year}.json"),
     )
 
+    os.rename(
+        "predictions_lsm.json",
+        os.path.join("results", f"{model_type}/{model_name}_pred_lsm_{test_year}.json"),
+    )
+
     # Calculate ExpRate
     test_num = years[test_year]
     with open(os.path.join("results", f"{model_type}/{model_name}_errors_{test_year}.json"), 'r') as jf:
@@ -66,6 +71,15 @@ def main(
             wf.write(f'ExpRate<=1:  {exprate_1}\n')
             wf.write(f'ExpRate<=2:  {exprate_2}\n')
 
+    # Calculate LSM
+    with open(os.path.join("results", f"{model_type}/{model_name}_pred_lsm_{test_year}.json"), 'r') as jf:
+        data = json.load(jf)
+        lsm = 0
+        for _, ele in data.items():
+            lsm += ele['lsm']
+        lsm /= len(data)
+        with open(os.path.join("results", f'{model_type}/{model_name}_lsm_{test_year}.txt'), 'w') as wf:
+            wf.write(f'LSM:  {lsm}\n')
 
 if __name__ == "__main__":
     typer.run(main)

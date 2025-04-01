@@ -4,7 +4,7 @@ trainer:
   logger:
     - class_path: pytorch_lightning.loggers.CSVLogger
       init_args:
-        save_dir: "logs2/"
+        save_dir: "logs/"
         name: "crohme_training"
   callbacks:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
@@ -27,7 +27,7 @@ trainer:
         filename: "latest-{epoch}"
   gpus: 1
   check_val_every_n_epoch: 2
-  max_epochs: 600
+  max_epochs: 400
   deterministic: true
 model:
   d_model: 256
