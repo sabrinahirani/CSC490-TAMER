@@ -5,6 +5,14 @@
 
 </div>
 
+## Note
+This repo is forked from the official GitHub repo of TAMER. This is the main branch is the same as the original repo.
+Our group implemented and experimented with 3 proposed models. Each of the 3 proposed models are implemented in separate
+branch.
+- `multi-task-learning-position-identifier` (Model 1 in the report/paper)
+- `self-critical-sequence-training` (Model 2 in the report/paper)
+- `weighted_loss` (Model 3 in the report/paper)
+
 ## News
 [2024/12/10] TAMER has been accepted to AAAI 2025! 🎉🎉🎉
 
