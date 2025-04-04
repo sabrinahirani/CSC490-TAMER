@@ -13,7 +13,7 @@ trainer:
     # Best Model (Based on val_ExpRate)
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
-        dirpath: "checkpoints2/best"
+        dirpath: "checkpoints/best"
         save_top_k: 1
         monitor: val_ExpRate
         mode: max
@@ -21,7 +21,7 @@ trainer:
     # Latest Model (Saved Every Epoch)
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
-        dirpath: "checkpoints2/latest"  # Folder for latest models
+        dirpath: "checkpoints/latest"  # Folder for latest models
         save_top_k: 1                  # Keep only the latest checkpoint
         every_n_epochs: 10             # Save every 10 epoch
         filename: "latest-{epoch}"
