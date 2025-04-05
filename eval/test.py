@@ -16,6 +16,7 @@ def main(
     ckp_folder = os.path.join(
         "lightning_logs", f"version_{version}", "checkpoints")
     
+    
     fnames = os.listdir(ckp_folder)
     assert len(fnames) == 1
     ckp_path = os.path.join(ckp_folder, fnames[0])

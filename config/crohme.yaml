@@ -1,19 +1,40 @@
 seed_everything: 7
 trainer:
   checkpoint_callback: true
+  logger:
+    - class_path: pytorch_lightning.loggers.CSVLogger
+      init_args:
+        save_dir: "logs/"
+        name: "crohme_training"
   callbacks:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
       init_args:
         logging_interval: epoch
+    # Best Model (Based on val_ExpRate)
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
-        filename: '{epoch}-{step}-{val_ExpRate:.4f}'
+        dirpath: "checkpoints2/best"
         save_top_k: 1
         monitor: val_ExpRate
-        every_n_epochs: 10
         mode: max
+        filename: '{epoch}-{step}-{val_ExpRate:.4f}'
+    # Best Model (Based on val_lsm)
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: "checkpoints2/best_lsm"
+        save_top_k: 1
+        monitor: val_lsm
+        mode: max
+        filename: '{epoch}-{step}-{val_lsm:.4f}'
+    # Latest Model (Saved Every Epoch)
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: "checkpoints2/latest"  # Folder for latest models
+        save_top_k: 1                  # Keep only the latest checkpoint
+        every_n_epochs: 10             # Save every 10 epoch
+        filename: "latest-{epoch}"
   gpus: 1
-  accelerator: ddp
+  accelerator: gpu
   check_val_every_n_epoch: 10
   max_epochs: 400
   deterministic: true
@@ -48,7 +69,7 @@ data:
   test_folder: 2014
   max_size: 320000
   scale_to_limit: true
-  train_batch_size: 12
-  eval_batch_size: 2
+  train_batch_size: 8
+  eval_batch_size: 4
   num_workers: 5
   scale_aug: false
