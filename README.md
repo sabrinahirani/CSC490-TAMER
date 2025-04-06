@@ -21,28 +21,12 @@ modifications are done by Babur Nawyan.
 │   └── crohme      # CROHME Dataset
 │   └── HME100k      # HME100k Dataset which needs to be downloaded according to the instructions below.
 ├── eval/             # evaluation scripts
+├── logs/
+│   └── crohme_training/  # Contains subfolders with hparams.yaml and metrics.csv (record of loss values)
+├── results/
+│   └── best      # Contains result files for best model, txt files contain the metric values
 ├── tamer               # model definition folder
-├── lightning_logs      # training logs
-│   └── version_0      # ckpt(w/o fusion) for CROHME dataset 
-│       ├── checkpoints
-│       │   └── epoch=315-step=118815-val_ExpRate=0.6113.ckpt
-│       ├── config.yaml
-│       └── hparams.yaml
-│   └── version_1      # ckpt(w/o fusion) for HME100K dataset 
-│       ├── checkpoints
-│       │   └── epoch=51-step=162967-val_ExpRate=0.6851.ckpt
-│       ├── config.yaml
-│       └── hparams.yaml
-│   └── version_2      # ckpt(w/ fusion) for CROHME dataset 
-│       ├── checkpoints
-│       │   └── 
-│       ├── config.yaml
-│       └── hparams.yaml
-│   └── version_3      # ckpt(w/ fusion) for HME100K dataset 
-│       ├── checkpoints
-│       │   └── epoch=55-step=175503-val_ExpRate=0.6954.ckpt
-│       ├── config.yaml
-│       └── hparams.yaml
+├── lightning_logs      # Ignore this folder
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
