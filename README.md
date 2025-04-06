@@ -62,12 +62,6 @@ For single gpu user, you may change the `config.yaml` file to
 gpus: 1
 ```
 
-## Training on HME100k Dataset
-It may take about **48** hours on **4** NVIDIA 2080Ti gpus using ddp on HME100k dataset.
-```bash
-# train TAMER model using 4 gpus and ddp on hme100k dataset
-python -u train.py --config config/hme100k.yaml
-```
 
 ## Evaluation
 Trained TAMER weight checkpoints for CROHME and HME100K Datasets have been saved in `lightning_logs/version_0` and `lightning_logs/version_1`, respectively.
@@ -76,9 +70,6 @@ Trained TAMER weight checkpoints for CROHME and HME100K Datasets have been saved
 # For CROHME Dataset
 bash eval/eval_crohme.sh 0
 
-# For HME100K Dataset
-bash eval/eval_hme100k.sh 1
-```
 
 ## Experimental Results
 
