@@ -16,7 +16,7 @@ branch.
 - `self-critical-sequence-training` (Model 2 in the report/paper)
 - `weighted_loss` (Model 3 in the report/paper)
 
-Lastly, note that the project structure, result tables, plots, etc below are from the original TAMER so please ignore it.
+**Lastly, note that the project structure, result tables, plots, etc below are from the original TAMER so please ignore it.**
 
 ## News
 [2024/12/10] TAMER has been accepted to AAAI 2025! 🎉🎉🎉
